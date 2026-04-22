@@ -27,4 +27,4 @@ RUN mkdir -p /app/staticfiles /app/media /app/logs
 EXPOSE 8000
 
 # Start server (FIXED PORT ISSUE)
-CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn fitness_backend.wsgi:application --bind 0.0.0.0:${PORT:-8000}"]
+CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn fitness_backend.wsgi:application --bind 0.0.0.0:$PORT"]
