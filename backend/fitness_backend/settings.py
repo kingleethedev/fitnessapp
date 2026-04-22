@@ -21,6 +21,7 @@ ALLOWED_HOSTS = [
     ".onrender.com",
     "localhost",
     "127.0.0.1"
+    "riadha.app"
 ]
 
 # Add any additional hosts from environment variable
