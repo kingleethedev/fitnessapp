@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - RiadhaFit</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            height: 100%;
+            background: #1A73E8;
+            color: white;
+            transition: all 0.3s;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.5rem;
+        }
+
+        .sidebar-header span {
+            color: #FBBC04;
+        }
+
+        .sidebar-menu {
+            padding: 1rem 0;
+        }
+
+        .menu-item {
+            padding: 0.8rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .menu-item:hover, .menu-item.active {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .menu-item i {
+            width: 24px;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            padding: 1rem;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background: white;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            background: #f5f5f5;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            width: 300px;
+        }
+
+        .search-bar i {
+            color: #999;
+            margin-right: 0.5rem;
+        }
+
+        .search-bar input {
+            border: none;
+            background: none;
+            outline: none;
+            width: 100%;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            background: #1A73E8;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .stat-info h3 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-info h2 {
+            font-size: 2rem;
+            color: #1A73E8;
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            background: #E8F0FE;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stat-icon i {
+            font-size: 1.5rem;
+            color: #1A73E8;
+        }
+
+        /* Tables */
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .card-header h3 {
+            color: #1A73E8;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background: #1A73E8;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #EA4335;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #FBBC04;
+            color: #1A73E8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #34A853;
+            color: white;
+        }
+
+        .status-inactive {
+            background: #EA4335;
+            color: white;
+        }
+
+        .status-pending {
+            background: #FBBC04;
+            color: #1A73E8;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+
+        .action-btn i {
+            font-size: 1rem;
+        }
+
+        .edit-btn {
+            color: #1A73E8;
+        }
+
+        .delete-btn {
+            color: #EA4335;
+        }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+
+        .chart-container h4 {
+            margin-bottom: 1rem;
+            color: #1A73E8;
+        }
+
+        canvas {
+            max-height: 300px;
+            width: 100%;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                left: -260px;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .sidebar.active {
+                left: 0;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            .menu-toggle {
+                display: block;
+            }
+        }
+
+        .menu-toggle {
+            display: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            margin-right: 1rem;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>Riadha<span>Fit</span></h2>
+            <p>Admin Panel</p>
+        </div>
+        <div class="sidebar-menu">
+            <div class="menu-item active" data-section="dashboard">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </div>
+            <div class="menu-item" data-section="users">
+                <i class="fas fa-users"></i>
+                <span>Users</span>
+            </div>
+            <div class="menu-item" data-section="workouts">
+                <i class="fas fa-dumbbell"></i>
+                <span>Workouts</span>
+            </div>
+            <div class="menu-item" data-section="meals">
+                <i class="fas fa-utensils"></i>
+                <span>Meal Plans</span>
+            </div>
+            <div class="menu-item" data-section="payments">
+                <i class="fas fa-credit-card"></i>
+                <span>Payments</span>
+            </div>
+            <div class="menu-item" data-section="challenges">
+                <i class="fas fa-trophy"></i>
+                <span>Challenges</span>
+            </div>
+            <div class="menu-item" data-section="analytics">
+                <i class="fas fa-chart-line"></i>
+                <span>Analytics</span>
+            </div>
+            <div class="menu-item" data-section="settings">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="top-bar">
+            <div style="display: flex; align-items: center;">
+                <div class="menu-toggle" id="menuToggle">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
+            </div>
+            <div class="user-info">
+                <span>Admin User</span>
+                <div class="avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div class="content-section active" id="dashboard-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3>Total Users</h3>
+                        <h2 id="totalUsers">1,234</h2>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3>Active Workouts</h3>
+                        <h2 id="totalWorkouts">5,678</h2>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-dumbbell"></i>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3>Meals Logged</h3>
+                        <h2 id="totalMeals">12,345</h2>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-utensils"></i>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3>Revenue</h3>
+                        <h2 id="totalRevenue">$8,901</h2>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h4>User Growth</h4>
+                    <canvas id="userGrowthChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h4>Workout Completion Rate</h4>
+                    <canvas id="completionChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Recent Users</h3>
+                    <button class="btn btn-primary" onclick="showAddUserModal()">Add User</button>
+                </div>
+                <table id="recentUsersTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>John Doe</td>
+                            <td>john@example.com</td>
+                            <td><span class="status-badge status-active">Active</span></td>
+                            <td>2024-01-15</td>
+                            <td class="action-buttons">
+                                <button class="action-btn edit-btn" onclick="editUser(1)"><i class="fas fa-edit"></i></button>
+                                <button class="action-btn delete-btn" onclick="deleteUser(1)"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Users Section -->
+        <div class="content-section" id="users-section">
+            <div class="card">
+                <div class="card-header">
+                    <h3>All Users</h3>
+                    <button class="btn btn-primary" onclick="showAddUserModal()">Add User</button>
+                </div>
+                <table id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Subscription</th>
+                            <th>Status</th>
+                            <th>Workouts</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <!-- Users will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Workouts Section -->
+        <div class="content-section" id="workouts-section">
+            <div class="card">
+                <div class="card-header">
+                    <h3>All Workouts</h3>
+                    <button class="btn btn-primary" onclick="showAddWorkoutModal()">Add Workout</button>
+                </div>
+                <table id="workoutsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Date</th>
+                            <th>Duration</th>
+                            <th>Exercises</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="workoutsTableBody">
+                        <!-- Workouts will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Meal Plans Section -->
+        <div class="content-section" id="meals-section">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Meal Plans</h3>
+                    <button class="btn btn-primary" onclick="showAddMealModal()">Add Meal</button>
+                </div>
+                <table id="mealsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Week</th>
+                            <th>Goal</th>
+                            <th>Meals Logged</th>
+                            <th>Completion</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mealsTableBody">
+                        <!-- Meal plans will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Payments Section -->
+        <div class="content-section" id="payments-section">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Payment Transactions</h3>
+                </div>
+                <table id="paymentsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Amount</th>
+                            <th>Plan</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsTableBody">
+                        <!-- Payments will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Challenges Section -->
+        <div class="content-section" id="challenges-section">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Active Challenges</h3>
+                    <button class="btn btn-primary" onclick="showAddChallengeModal()">Create Challenge</button>
+                </div>
+                <table id="challengesTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Target</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Participants</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="challengesTableBody">
+                        <!-- Challenges will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div class="content-section" id="analytics-section">
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h4>Daily Active Users</h4>
+                    <canvas id="dailyActiveChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h4>Retention Rate</h4>
+                    <canvas id="retentionChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3>Key Metrics</h3>
+                </div>
+                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>DAU</h3>
+                            <h2 id="dau">1,234</h2>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>MAU</h3>
+                            <h2 id="mau">5,678</h2>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>Churn Rate</h3>
+                            <h2 id="churnRate">12.5%</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div class="content-section" id="settings-section">
+            <div class="card">
+                <h3>General Settings</h3>
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label>App Name</label>
+                        <input type="text" id="appName" value="RiadhaFit">
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Email</label>
+                        <input type="email" id="contactEmail" value="support@riadhafit.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Default Subscription Price</label>
+                        <input type="number" id="subscriptionPrice" value="9.99">
+                    </div>
+                    <div class="form-group">
+                        <label>Free Trial Days</label>
+                        <input type="number" id="trialDays" value="7">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add User</h3>
+                <button onclick="closeModal('userModal')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="userForm">
+                <input type="hidden" id="userId">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="userName" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="userEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Subscription</label>
+                    <select id="userSubscription">
+                        <option value="FREE">Free</option>
+                        <option value="PREMIUM">Premium</option>
+                        <option value="PRO">Pro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="userStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn" onclick="closeModal('userModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="workoutModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Workout</h3>
+                <button onclick="closeModal('workoutModal')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="workoutForm">
+                <div class="form-group">
+                    <label>User</label>
+                    <select id="workoutUser" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Duration (minutes)</label>
+                    <input type="number" id="workoutDuration" required>
+                </div>
+                <div class="form-group">
+                    <label>Exercises</label>
+                    <textarea id="workoutExercises" rows="3" placeholder="JSON format"></textarea>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn" onclick="closeModal('workoutModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="challengeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create Challenge</h3>
+                <button onclick="closeModal('challengeModal')" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="challengeForm">
+                <div class="form-group">
+                    <label>Challenge Name</label>
+                    <input type="text" id="challengeName" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="challengeDesc" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="challengeType">
+                        <option value="STREAK">Streak Challenge</option>
+                        <option value="WORKOUT_COUNT">Workout Count</option>
+                        <option value="CALORIES">Calories Burned</option>
+                        <option value="DURATION">Total Duration</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Target Value</label>
+                    <input type="number" id="challengeTarget" required>
+                </div>
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" id="challengeStart" required>
+                </div>
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="date" id="challengeEnd" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn" onclick="closeModal('challengeModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Charts
+        let userGrowthChart, completionChart, dailyActiveChart, retentionChart;
+
+        function initCharts() {
+            const ctx1 = document.getElementById('userGrowthChart').getContext('2d');
+            userGrowthChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'New Users',
+                        data: [120, 150, 180, 220, 280, 350],
+                        borderColor: '#1A73E8',
+                        backgroundColor: 'rgba(26, 115, 232, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: true }
+            });
+
+            const ctx2 = document.getElementById('completionChart').getContext('2d');
+            completionChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Completed', 'In Progress'],
+                    datasets: [{
+                        data: [75, 25],
+                        backgroundColor: ['#34A853', '#EA4335']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: true }
+            });
+
+            const ctx3 = document.getElementById('dailyActiveChart').getContext('2d');
+            dailyActiveChart = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Active Users',
+                        data: [850, 920, 980, 1050, 1200, 1350, 1100],
+                        backgroundColor: '#1A73E8'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: true }
+            });
+
+            const ctx4 = document.getElementById('retentionChart').getContext('2d');
+            retentionChart = new Chart(ctx4, {
+                type: 'line',
+                data: {
+                    labels: ['Day 1', 'Day 3', 'Day 7', 'Day 14', 'Day 30'],
+                    datasets: [{
+                        label: 'Retention Rate',
+                        data: [100, 85, 70, 55, 40],
+                        borderColor: '#FBBC04',
+                        backgroundColor: 'rgba(251, 188, 4, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: true }
+            });
+        }
+
+        // Load users from API
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/admin/users/');
+                const users = await response.json();
+                const tbody = document.getElementById('usersTableBody');
+                tbody.innerHTML = '';
+                users.forEach(user => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${user.id}</td>
+                        <td>${user.username}</td>
+                        <td>${user.email}</td>
+                        <td><span class="status-badge ${user.subscription_tier === 'FREE' ? 'status-pending' : 'status-active'}">${user.subscription_tier}</span></td>
+                        <td><span class="status-badge ${user.is_active ? 'status-active' : 'status-inactive'}">${user.is_active ? 'Active' : 'Inactive'}</span></td>
+                        <td>${user.total_workouts}</td>
+                        <td>${new Date(user.date_joined).toLocaleDateString()}</td>
+                        <td class="action-buttons">
+                            <button class="action-btn edit-btn" onclick="editUser(${user.id})"><i class="fas fa-edit"></i></button>
+                            <button class="action-btn delete-btn" onclick="deleteUser(${user.id})"><i class="fas fa-trash"></i></button>
+                        </td>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        // Modal functions
+        function showAddUserModal() {
+            document.getElementById('modalTitle').innerText = 'Add User';
+            document.getElementById('userForm').reset();
+            document.getElementById('userId').value = '';
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        function editUser(id) {
+            document.getElementById('modalTitle').innerText = 'Edit User';
+            document.getElementById('userId').value = id;
+            // Load user data and populate form
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        function deleteUser(id) {
+            if (confirm('Are you sure you want to delete this user?')) {
+                // Call delete API
+                console.log('Delete user:', id);
+            }
+        }
+
+        function showAddWorkoutModal() {
+            document.getElementById('workoutModal').style.display = 'flex';
+        }
+
+        function showAddChallengeModal() {
+            document.getElementById('challengeModal').style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Form submissions
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userId = document.getElementById('userId').value;
+            const userData = {
+                username: document.getElementById('userName').value,
+                email: document.getElementById('userEmail').value,
+                subscription_tier: document.getElementById('userSubscription').value,
+                is_active: document.getElementById('userStatus').value === 'active'
+            };
+            
+            if (userId) {
+                // Update existing user
+                await fetch(`/api/admin/users/${userId}/`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+            } else {
+                // Create new user
+                await fetch('/api/admin/users/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+            }
+            closeModal('userModal');
+            loadUsers();
+        });
+
+        document.getElementById('settingsForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            // Save settings
+            console.log('Settings saved');
+            alert('Settings saved successfully!');
+        });
+
+        // Navigation
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                const section = item.dataset.section;
+                document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+                document.getElementById(`${section}-section`).classList.add('active');
+            });
+        });
+
+        // Mobile menu toggle
+        document.getElementById('menuToggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            loadUsers();
+        });
+    </script>
+</body>
+</html>

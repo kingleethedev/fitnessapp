@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from drf_yasg.views import get_schema_view
+from django.views.generic import TemplateView
 from drf_yasg import openapi
 
 # Import viewsets
@@ -50,6 +51,8 @@ urlpatterns = [
     # Swagger URLs
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    path('', TemplateView.as_view(template_name='welcome.html'), name='welcome'),
+    path('admin-dashboard/', TemplateView.as_view(template_name='admin_dashboard.html'), name='admin_dashboard'),
 ]
 
 if settings.DEBUG:

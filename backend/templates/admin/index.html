@@ -1,0 +1,42 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    #header {
+        background-color: #1A73E8;
+    }
+    .module h2, .inline-group h2 {
+        background-color: #FBBC04;
+        color: #1A73E8;
+    }
+    .dashboard .module table th {
+        background-color: #E8F0FE;
+    }
+    .button, input[type=submit], input[type=button], .submit-row input, a.button {
+        background-color: #1A73E8;
+    }
+    .button.default, input[type=submit].default, .submit-row input.default {
+        background-color: #FBBC04;
+        color: #1A73E8;
+    }
+</style>
+{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        RiadhaFit Administration
+    </a>
+</h1>
+{% endblock %}
+
+{% block welcome-msg %}
+    Welcome to RiadhaFit Admin Panel
+    <strong>{% firstof user.get_short_name user.get_username %}</strong>
+{% endblock %}
+
+{% block userlinks %}
+    {{ block.super }}
+{% endblock %}

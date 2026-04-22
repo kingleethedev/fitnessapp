@@ -1,0 +1,54 @@
+{% extends "admin/base.html" %}
+
+{% load i18n %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+    <a href="{% url 'admin:index' %}">
+        <span style="color: #1A73E8;">Riadha</span><span style="color: #FBBC04;">Fit</span> Admin
+    </a>
+</div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block extrastyle %}
+<style>
+    #header {
+        background-color: #1A73E8;
+        color: white;
+    }
+    #branding h1, #branding h1 a:link, #branding h1 a:visited {
+        color: white;
+    }
+    .module h2, .inline-group h2 {
+        background-color: #FBBC04;
+        color: #1A73E8;
+    }
+    div.breadcrumbs {
+        background-color: #1557B0;
+        color: white;
+    }
+    .button, input[type=submit], input[type=button], .submit-row input, a.button {
+        background-color: #1A73E8;
+    }
+    .button.default, input[type=submit].default, .submit-row input.default {
+        background-color: #FBBC04;
+        color: #1A73E8;
+    }
+    .dashboard .module table th {
+        background-color: #E8F0FE;
+    }
+    .selector-chosen h2 {
+        background: #1A73E8 !important;
+    }
+    a:link, a:visited {
+        color: #1A73E8;
+    }
+</style>
+{% endblock %}
