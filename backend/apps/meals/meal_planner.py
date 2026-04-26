@@ -61,25 +61,32 @@ class MealPlanner:
     
     @classmethod
     def _get_or_create_meal_item(cls, meal_data):
-        """Get or create a meal item in the database"""
+        """Get or create a meal item from meal data"""
         meal_name = meal_data['name']
         
-        # Try to find existing meal item
         meal_item = MealItem.objects.filter(name=meal_name).first()
         
         if not meal_item:
-            # Create new meal item with UUID
+            # Get category from meal type
+            meal_type = cls._get_meal_type_from_name(meal_name)
+            
+            category, _ = MealCategory.objects.get_or_create(
+                name=meal_type  # or map properly if needed
+            )
+            
             meal_item = MealItem.objects.create(
                 id=uuid.uuid4(),
                 name=meal_name,
-                meal_type=cls._get_meal_type_from_name(meal_name),
+                meal_type=meal_type,
+                category=category,  # Fixed: category is now properly assigned
                 calories=meal_data['calories'],
                 protein=meal_data.get('protein', 0),
                 carbs=meal_data.get('carbs', 0),
                 fats=meal_data.get('fats', 0),
                 is_active=True
             )
-            print(f"Created new meal item: {meal_name} with ID: {meal_item.id}")
+            
+            print(f"Created meal: {meal_name} | Category: {category.name}")
         
         return meal_item
     
