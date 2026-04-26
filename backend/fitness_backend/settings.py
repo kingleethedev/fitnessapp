@@ -18,9 +18,11 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Update ALLOWED_HOSTS to include ngrok
 ALLOWED_HOSTS = [
-    ".onrender.com",
+    "127.0.0.1",
     "localhost",
-    "127.0.0.1"
+    "fitnessapp-4oeh.onrender.com",
+    "riadha.app",
+    ".onrender.com"
 ]
 
 # Add any additional hosts from environment variable

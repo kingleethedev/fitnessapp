@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://hardly-urgency-length.ngrok-free.dev/api';
+  static const String baseUrl = 'https://riadha.app/api';
   
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
