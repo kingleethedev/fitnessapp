@@ -7,8 +7,6 @@ import '../../widgets/primary_button.dart';
 import 'edit_profile_screen.dart';
 import 'workout_history_screen.dart';
 import 'meal_history_screen.dart';
-import 'statistics_screen.dart';
-import 'notifications_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -35,10 +33,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: const Text(
+          'Profile',
+          style: TextStyle(color: AppColors.blue),
+        ),
+        backgroundColor: AppColors.white,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit, color: AppColors.blue),
             onPressed: () {
               Navigator.push(
                 context,
@@ -55,71 +58,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                // Avatar
-                Stack(
+                // User Info Section
+                Column(
                   children: [
-                    const CircleAvatar(
-                      radius: 50,
-                      backgroundColor: AppColors.blue,
-                      child: Icon(
-                        Icons.person,
-                        size: 50,
-                        color: AppColors.white,
+                    Text(
+                      user?['username'] ?? 'Loading...',
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.blue,
                       ),
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
+                    const SizedBox(height: 8),
+                    Text(
+                      user?['email'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.greyDark,
+                      ),
+                    ),
+                    if (user != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppColors.yellow,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.white, width: 2),
+                          color: user['subscription_tier'] == 'PREMIUM' 
+                              ? AppColors.yellow 
+                              : AppColors.lightBlue,
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 16,
-                          color: AppColors.white,
+                        child: Text(
+                          user['subscription_tier'] == 'PREMIUM' ? 'PREMIUM MEMBER' : 'FREE MEMBER',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: user['subscription_tier'] == 'PREMIUM' 
+                                ? AppColors.white 
+                                : AppColors.blue,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  user?['username'] ?? 'Loading...',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.blue,
-                  ),
-                ),
-                Text(
-                  user?['email'] ?? '',
-                  style: const TextStyle(color: AppColors.greyDark),
-                ),
-                if (user != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: user['subscription_tier'] == 'PREMIUM' 
-                          ? AppColors.yellow 
-                          : AppColors.lightBlue,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      user['subscription_tier'] == 'PREMIUM' ? 'PREMIUM' : 'FREE',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: user['subscription_tier'] == 'PREMIUM' 
-                            ? AppColors.white 
-                            : AppColors.blue,
-                      ),
-                    ),
-                  ),
-                ],
+                
                 const SizedBox(height: 32),
                 
                 // Stats Row
@@ -151,7 +133,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 const Divider(),
                 
                 // Menu Items
@@ -189,28 +171,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                 ),
                 _buildMenuItem(
-                  icon: Icons.analytics,
-                  title: 'Statistics',
-                  subtitle: 'View your progress and achievements',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const StatisticsScreen()),
-                    );
-                  },
-                ),
-                _buildMenuItem(
-                  icon: Icons.notifications,
-                  title: 'Notifications',
-                  subtitle: 'Manage your notification preferences',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
-                    );
-                  },
-                ),
-                _buildMenuItem(
                   icon: Icons.star,
                   title: 'Subscription',
                   subtitle: user?['subscription_tier'] == 'PREMIUM' 
@@ -220,8 +180,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Navigator.pushNamed(context, '/subscription');
                   },
                 ),
+                
+                const SizedBox(height: 24),
                 const Divider(),
                 const SizedBox(height: 16),
+                
+                // Sign Out Button
                 PrimaryButton(
                   text: 'Sign Out',
                   onPressed: () async {
@@ -242,19 +206,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildStatCard(String value, String label, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.lightBlue,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
-          Icon(icon, color: AppColors.blue, size: 24),
-          const SizedBox(height: 4),
+          Icon(icon, color: AppColors.blue, size: 28),
+          const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: AppColors.blue,
             ),
@@ -279,23 +243,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     return ListTile(
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: AppColors.lightBlue,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: AppColors.blue),
+        child: Icon(icon, color: AppColors.blue, size: 22),
       ),
       title: Text(
         title,
         style: const TextStyle(
           fontWeight: FontWeight.w500,
           color: AppColors.black,
+          fontSize: 16,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(fontSize: 12, color: AppColors.greyDark),
+        style: const TextStyle(
+          fontSize: 12, 
+          color: AppColors.greyDark,
+        ),
       ),
       trailing: const Icon(Icons.chevron_right, color: AppColors.greyDark),
       onTap: onTap,

@@ -31,7 +31,8 @@ Pillow
 # Admin & Dev Tools
 django-import-export==3.3.0
 django-debug-toolbar==4.2.0
-
+dj-database-url 
+psycopg2-binary
 # Production
 gunicorn==21.2.0
 whitenoise==6.6.0
