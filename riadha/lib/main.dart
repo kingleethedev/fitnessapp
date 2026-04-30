@@ -14,9 +14,9 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/home/home_screen.dart';
-import 'screens/workout/workout_generation_screen.dart';
 import 'screens/workout/workout_execution_screen.dart';
 import 'screens/workout/workout_complete_screen.dart';
+import 'screens/workout/workout_preview_screen.dart';
 import 'screens/meals/meal_plan_screen.dart';
 import 'screens/meals/meal_detail_screen.dart';
 import 'screens/progress/progress_screen.dart';
@@ -67,8 +67,8 @@ class FitnessApp extends StatelessWidget {
               return MaterialPageRoute(builder: (_) => const OnboardingScreen());
             case '/home':
               return MaterialPageRoute(builder: (_) => const HomeScreen());
-            case '/workout-generation':
-              return MaterialPageRoute(builder: (_) => const WorkoutGenerationScreen());
+            case '/workout-preview':
+              return MaterialPageRoute(builder: (_) => const WorkoutPreviewScreen());
             case '/workout-execution':
               return MaterialPageRoute(builder: (_) => const WorkoutExecutionScreen());
             case '/workout-complete':

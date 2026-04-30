@@ -1,4 +1,5 @@
 // lib/screens/profile/meal_history_screen.dart
+// lib/screens/profile/meal_history_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -538,12 +539,12 @@ class _MealHistoryScreenState extends State<MealHistoryScreen> {
 
     double maxMeals = 7.0;
     for (var group in barGroups) {
-      final yValue = group.barRods.first.toY;
+      final num yValue = group.barRods.first.toY;
       if (yValue > maxMeals) {
-        maxMeals = yValue;
+        maxMeals = yValue.toDouble();
       }
     }
-    final yMax = maxMeals + 1;
+    final double yMax = maxMeals + 1;
 
     return BarChart(
       BarChartData(

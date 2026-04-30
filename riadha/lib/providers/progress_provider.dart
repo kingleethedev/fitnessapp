@@ -54,11 +54,34 @@ class ProgressProvider extends ChangeNotifier {
   Future<void> loadWorkoutStats() async {
     try {
       final apiService = ApiService();
-      final response = await apiService.get('/users/stats/');
-      _workoutStats = response;
+      
+      // Try to get workout stats from profile since it already has this data
+      final profileResponse = await apiService.get('/users/profile/');
+      
+      // Create workout stats from profile data
+      _workoutStats = {
+        'summary': {
+          'total_workouts': profileResponse['total_workouts'] ?? 0,
+          'total_minutes': 0, // You might need to calculate this from workout history
+          'total_calories': 0, // You might need to calculate this from workout history
+        },
+        'streak_days': profileResponse['streak_days'] ?? 0,
+      };
+      
       notifyListeners();
     } catch (e) {
       print('Error loading workout stats: $e');
+      
+      // Set default empty stats instead of failing
+      _workoutStats = {
+        'summary': {
+          'total_workouts': 0,
+          'total_minutes': 0,
+          'total_calories': 0,
+        },
+        'streak_days': 0,
+      };
+      notifyListeners();
     }
   }
   
@@ -70,6 +93,14 @@ class ProgressProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error loading weekly summary: $e');
+      
+      // Set default empty summary
+      _weeklySummary = {
+        'meals_by_day': {},
+        'completion_rate': 0,
+        'total_meals_completed': 0,
+      };
+      notifyListeners();
     }
   }
 }

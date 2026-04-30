@@ -41,13 +41,14 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
       final mealProvider = Provider.of<MealProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      // Load each method individually instead of loadAllData
       await Future.wait([
         progressProvider.loadProgressSummary(),
         progressProvider.loadWorkoutStats(),
         progressProvider.loadWeeklySummary(),
         workoutProvider.loadWorkoutHistory(limit: 30),
         mealProvider.loadWeeklySummary(),
+        mealProvider.loadMealPlan(),
+        mealProvider.loadTodaysMeals(),
         authProvider.loadUserProfile(),
       ]);
       
@@ -175,9 +176,39 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
         final workoutHistory = workoutProvider.workoutHistory;
         final workoutStats = progressProvider.workoutStats;
         
-        final totalWorkouts = workoutStats?['summary']?['total_workouts'] ?? progressProvider.totalWorkouts;
-        final totalMinutes = workoutStats?['summary']?['total_minutes'] ?? 0;
-        final totalCalories = workoutStats?['summary']?['total_calories'] ?? 0;
+        // Calculate actual totals from workout history
+        int calculatedTotalWorkouts = 0;
+        int calculatedTotalMinutes = 0;
+        int calculatedTotalCalories = 0;
+        
+        for (var workout in workoutHistory) {
+          if (workout['is_completed'] == true) {
+            calculatedTotalWorkouts++;
+            
+            final duration = workout['duration'];
+            final calories = workout['calories_burned'];
+            
+            if (duration != null) {
+              calculatedTotalMinutes += (duration is int ? duration : (duration as num).toInt());
+            }
+            if (calories != null) {
+              calculatedTotalCalories += (calories is int ? calories : (calories as num).toInt());
+            }
+          }
+        }
+        
+        final totalWorkouts = calculatedTotalWorkouts > 0 
+            ? calculatedTotalWorkouts 
+            : (workoutStats?['summary']?['total_workouts'] ?? progressProvider.totalWorkouts);
+        
+        final totalMinutes = calculatedTotalMinutes > 0 
+            ? calculatedTotalMinutes 
+            : (workoutStats?['summary']?['total_minutes'] ?? 0);
+        
+        final totalCalories = calculatedTotalCalories > 0 
+            ? calculatedTotalCalories 
+            : (workoutStats?['summary']?['total_calories'] ?? 0);
+            
         final streakDays = progressProvider.streakDays;
         
         return Column(
@@ -237,30 +268,28 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
             ),
             
             // Weekly Activity Chart
-            if (workoutHistory.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const Text(
-                'Weekly Activity',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.blue,
-                ),
+            const SizedBox(height: 24),
+            const Text(
+              'Weekly Activity',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.blue,
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 200,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.greyMedium),
-                  ),
-                  child: _buildWorkoutChart(workoutHistory),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 220,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.greyMedium),
                 ),
+                child: _buildWorkoutChart(workoutHistory),
               ),
-            ],
+            ),
             
             const SizedBox(height: 24),
             
@@ -298,17 +327,26 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
     final List<FlSpot> spots = [];
     final now = DateTime.now();
     
-    for (int i = 6; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    
+    for (int i = 0; i < 7; i++) {
+      final date = startOfWeek.add(Duration(days: i));
       final workoutsOnDay = workoutHistory.where((w) {
-        final workoutDate = DateTime.parse(w['date']);
-        return workoutDate.year == date.year &&
-               workoutDate.month == date.month &&
-               workoutDate.day == date.day &&
-               w['is_completed'] == true;
+        try {
+          final workoutDate = DateTime.parse(w['date']);
+          return workoutDate.year == date.year &&
+                 workoutDate.month == date.month &&
+                 workoutDate.day == date.day &&
+                 w['is_completed'] == true;
+        } catch (e) {
+          return false;
+        }
       }).length;
-      spots.add(FlSpot((6 - i).toDouble(), workoutsOnDay.toDouble()));
+      spots.add(FlSpot(i.toDouble(), workoutsOnDay.toDouble()));
     }
+
+    final double maxY = spots.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+    final double yMax = maxY > 0 ? maxY + 1 : 5;
 
     return LineChart(
       LineChartData(
@@ -318,7 +356,12 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 40,
-              getTitlesWidget: (value, meta) => Text(value.toInt().toString()),
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: const TextStyle(fontSize: 12),
+                );
+              },
             ),
           ),
           bottomTitles: AxisTitles(
@@ -327,11 +370,17 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
               getTitlesWidget: (value, meta) {
                 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
                 if (value.toInt() >= 0 && value.toInt() < 7) {
-                  return Text(weekdays[value.toInt()]);
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      weekdays[value.toInt()],
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  );
                 }
                 return const Text('');
               },
-              reservedSize: 30,
+              reservedSize: 35,
             ),
           ),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -344,21 +393,38 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
             isCurved: true,
             color: AppColors.blue,
             barWidth: 3,
-            dotData: const FlDotData(show: true),
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 4,
+                  color: AppColors.blue,
+                  strokeWidth: 2,
+                  strokeColor: AppColors.white,
+                );
+              },
+            ),
             belowBarData: BarAreaData(
               show: true,
               color: AppColors.blue.withOpacity(0.1),
             ),
           ),
         ],
+        maxY: yMax,
+        minY: 0,
       ),
     );
   }
 
   Widget _buildRecentWorkoutItem(Map<String, dynamic> workout) {
     final date = DateTime.parse(workout['date']);
-    final exercises = workout['exercises'] as List;
+    final exercises = workout['exercises'] as List? ?? [];
     final isCompleted = workout['is_completed'] == true;
+    
+    final duration = workout['duration'];
+    final calories = workout['calories_burned'];
+    final durationInt = duration != null ? (duration is int ? duration : (duration as num).toInt()) : 0;
+    final caloriesInt = calories != null ? (calories is int ? calories : (calories as num).toInt()) : 0;
     
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -398,7 +464,7 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${exercises.length} exercises • ${workout['duration']} min',
+                  '${exercises.length} exercises • $durationInt min • $caloriesInt cal',
                   style: TextStyle(
                     fontSize: 12,
                     color: isCompleted ? AppColors.greyDark : AppColors.greyMedium,
@@ -425,15 +491,61 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
   }
 
   Widget _buildMealTab() {
-    return Consumer<MealProvider>(
-      builder: (context, mealProvider, child) {
+    return Consumer2<MealProvider, ProgressProvider>(
+      builder: (context, mealProvider, progressProvider, child) {
         final weeklySummary = mealProvider.weeklySummary;
         final mealsByDay = weeklySummary?['meals_by_day'] ?? {};
-        final completionRate = weeklySummary?['completion_rate'] ?? 0;
         final totalMeals = weeklySummary?['total_meals_completed'] ?? 0;
         
+        // Get meal plan data like MealHistoryScreen does
+        final mealPlan = mealProvider.currentMealPlan;
+        
+        // Build recent meals list similar to MealHistoryScreen
+        List<Map<String, dynamic>> recentMeals = [];
+        if (mealPlan != null && mealPlan['meals'] != null) {
+          final meals = mealPlan['meals'] as Map<String, dynamic>;
+          final days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+          final today = DateTime.now().weekday;
+          
+          for (int i = 0; i < 7; i++) {
+            final dayIndex = (today - 1 - i) % 7;
+            if (dayIndex >= 0) {
+              final day = days[dayIndex];
+              if (meals[day] != null) {
+                final dayMeals = meals[day] as Map<String, dynamic>;
+                dayMeals.forEach((mealType, mealData) {
+                  recentMeals.add({
+                    'date': day,
+                    'meal_type': mealType,
+                    'name': mealData['name'],
+                    'calories': mealData['calories'],
+                    'completed': mealData['completed'] ?? false,
+                    'log_id': mealData['log_id'],
+                    'meal_item_id': mealData['id'],
+                  });
+                });
+              }
+            }
+          }
+        }
+        
+        final todayName = _getTodayName();
+        final todayMealCount = mealsByDay[todayName] ?? 0;
+        final totalPossibleMeals = 35;
+        final actualCompletionRate = totalPossibleMeals > 0 
+            ? (totalMeals / totalPossibleMeals * 100).toInt() 
+            : 0;
+        
         final List<BarChartGroupData> barData = [];
-        const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        
+        double maxMeals = 0;
+        for (int i = 0; i < weekdays.length; i++) {
+          final day = weekdays[i];
+          final count = mealsByDay[day]?.toDouble() ?? 0.0;
+          if (count > maxMeals) maxMeals = count;
+        }
+        maxMeals = maxMeals > 0 ? maxMeals + 1 : 7;
         
         for (int i = 0; i < weekdays.length; i++) {
           final day = weekdays[i];
@@ -444,11 +556,12 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
               barRods: [
                 BarChartRodData(
                   toY: count,
-                  color: AppColors.blue,
-                  width: 20,
-                  borderRadius: BorderRadius.circular(4),
+                  color: count > 0 ? AppColors.blue : AppColors.greyLight,
+                  width: 30,
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ],
+              barsSpace: 8,
             ),
           );
         }
@@ -463,22 +576,130 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
                   child: StatCard(
                     title: 'Meals Logged',
                     value: '$totalMeals',
+                    subtitle: 'this week',
                     icon: Icons.restaurant,
-                    backgroundColor: AppColors.lightBlue,
-                    textColor: AppColors.blue,
+                    backgroundColor: totalMeals > 0 ? AppColors.lightBlue : AppColors.greyLight,
+                    textColor: totalMeals > 0 ? AppColors.blue : AppColors.greyDark,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: StatCard(
                     title: 'Completion Rate',
-                    value: '${completionRate.toInt()}%',
+                    value: '$actualCompletionRate%',
+                    subtitle: 'of ${totalPossibleMeals} meals',
                     icon: Icons.percent,
-                    backgroundColor: AppColors.lightBlue,
-                    textColor: AppColors.blue,
+                    backgroundColor: actualCompletionRate > 50 ? AppColors.lightBlue : AppColors.greyLight,
+                    textColor: actualCompletionRate > 50 ? AppColors.blue : AppColors.greyDark,
                   ),
                 ),
               ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Today's progress card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.blue.withOpacity(0.1),
+                    AppColors.lightBlue.withOpacity(0.3),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.blue.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.blue.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.today,
+                      color: AppColors.blue,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Today\'s Progress',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.blue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$todayMealCount meals logged',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.blue,
+                          ),
+                        ),
+                        Text(
+                          'Goal: 5 meals per day',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.greyDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (todayMealCount < 5)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${5 - todayMealCount} left',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.warning,
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle, size: 16, color: AppColors.success),
+                          SizedBox(width: 4),
+                          Text(
+                            'Complete!',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
             
             const SizedBox(height: 24),
@@ -492,9 +713,14 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
                 color: AppColors.blue,
               ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Meals logged per day (Target: 5 meals/day)',
+              style: TextStyle(fontSize: 12, color: AppColors.greyDark),
+            ),
             const SizedBox(height: 16),
             SizedBox(
-              height: 250,
+              height: 280,
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -502,37 +728,127 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.greyMedium),
                 ),
-                child: BarChart(
-                  BarChartData(
-                    alignment: BarChartAlignment.spaceAround,
-                    maxY: 7.0,
-                    barGroups: barData,
-                    titlesData: FlTitlesData(
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          getTitlesWidget: (value, meta) => Text(value.toInt().toString()),
+                child: mealsByDay.isEmpty
+                    ? const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.restaurant, size: 48, color: AppColors.greyMedium),
+                            SizedBox(height: 16),
+                            Text(
+                              'No meals logged yet',
+                              style: TextStyle(color: AppColors.greyDark),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Log your first meal to see the chart!',
+                              style: TextStyle(fontSize: 12, color: AppColors.greyDark),
+                            ),
+                          ],
+                        ),
+                      )
+                    : BarChart(
+                        BarChartData(
+                          alignment: BarChartAlignment.spaceAround,
+                          maxY: maxMeals, // Fixed: maxMeals is already double
+                          barGroups: barData,
+                          titlesData: FlTitlesData(
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 40,
+                                getTitlesWidget: (value, meta) {
+                                  return Text(
+                                    value.toInt().toString(),
+                                    style: const TextStyle(fontSize: 12),
+                                  );
+                                },
+                              ),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                getTitlesWidget: (value, meta) {
+                                  if (value.toInt() >= 0 && value.toInt() < weekdays.length) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Text(
+                                        weekdays[value.toInt()].substring(0, 3),
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                      ),
+                                    );
+                                  }
+                                  return const Text('');
+                                },
+                                reservedSize: 35,
+                              ),
+                            ),
+                            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          ),
+                          borderData: FlBorderData(show: false),
+                          gridData: const FlGridData(show: true),
+                          barTouchData: BarTouchData(
+                            touchTooltipData: BarTouchTooltipData(
+                              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                                return BarTooltipItem(
+                                  '${rod.toY.toInt()} meals',
+                                  const TextStyle(color: Colors.white),
+                                );
+                              },
+                            ),
+                          ),
                         ),
                       ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, meta) => Text(weekdays[value.toInt()]),
-                          reservedSize: 30,
-                        ),
-                      ),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    gridData: const FlGridData(show: true),
-                  ),
-                ),
               ),
             ),
             
+            const SizedBox(height: 16),
+            
+            // Legend
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: AppColors.blue,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text('Meals Logged', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 16),
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: AppColors.greyLight,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text('No Meals', style: TextStyle(fontSize: 12)),
+              ],
+            ),
+            
             const SizedBox(height: 24),
+            
+            // Recent Meals section
+            if (recentMeals.isNotEmpty) ...[
+              const Text(
+                'Recent Meals',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.blue,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...recentMeals.take(5).map((meal) => _buildRecentMealItem(meal, mealProvider)),
+              const SizedBox(height: 16),
+            ],
             
             // Tip
             Container(
@@ -547,8 +863,10 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Logging all your meals helps track nutrition and reach your goals faster!',
-                      style: TextStyle(color: AppColors.blue, fontSize: 12),
+                      totalMeals > 0 
+                        ? 'Great job logging $totalMeals meals this week! Keep tracking to reach your nutrition goals.'
+                        : 'Logging all your meals helps track nutrition and reach your goals faster!',
+                      style: const TextStyle(color: AppColors.blue, fontSize: 12),
                     ),
                   ),
                 ],
@@ -558,6 +876,129 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
         );
       },
     );
+  }
+
+  Widget _buildRecentMealItem(Map<String, dynamic> meal, MealProvider mealProvider) {
+    final isCompleted = meal['completed'] == true;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isCompleted ? AppColors.success : AppColors.greyMedium),
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 45,
+          height: 45,
+          decoration: BoxDecoration(
+            color: isCompleted ? AppColors.lightBlue : AppColors.greyLight,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(_getMealIcon(meal['meal_type']), color: isCompleted ? AppColors.blue : AppColors.greyDark),
+        ),
+        title: Text(
+          meal['name'],
+          style: TextStyle(
+            decoration: isCompleted ? TextDecoration.lineThrough : null,
+            color: isCompleted ? AppColors.greyDark : AppColors.black,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_formatMealType(meal['meal_type']), style: const TextStyle(fontSize: 12)),
+            Text('${meal['calories']} cal • ${meal['date']}', style: const TextStyle(fontSize: 10, color: AppColors.greyDark)),
+          ],
+        ),
+        trailing: isCompleted
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.success,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text('Logged', style: TextStyle(fontSize: 10, color: AppColors.white)),
+              )
+            : ElevatedButton(
+                onPressed: () => _logMealFromProgress(meal, mealProvider),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.blue,
+                  foregroundColor: AppColors.white,
+                  minimumSize: const Size(60, 30),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                child: const Text('Log', style: TextStyle(fontSize: 12)),
+              ),
+      ),
+    );
+  }
+
+  Future<void> _logMealFromProgress(Map<String, dynamic> meal, MealProvider mealProvider) async {
+    if (!mounted) return;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Log Meal'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Mark "${meal['name']}" as completed?'),
+            const SizedBox(height: 8),
+            Text(
+              '${meal['calories']} calories',
+              style: const TextStyle(color: AppColors.greyDark),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.blue,
+              foregroundColor: AppColors.white,
+            ),
+            child: const Text('Log Meal'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == true && mounted) {
+      try {
+        await mealProvider.logMeal(
+          meal['meal_type'],
+          mealItemId: meal['meal_item_id'],
+          customName: meal['name'],
+          customCalories: meal['calories'],
+        );
+        await _loadData();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meal logged successfully!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to log meal: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildBodyTab() {
@@ -570,13 +1011,24 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
         
         String bmi = '0';
         String bmiCategory = 'Normal';
+        Color bmiColor = AppColors.blue;
         
         if (height > 0 && weight > 0) {
           bmi = (weight / ((height / 100) * (height / 100))).toStringAsFixed(1);
           final bmiValue = double.parse(bmi);
-          if (bmiValue < 18.5) bmiCategory = 'Underweight';
-          else if (bmiValue >= 25 && bmiValue < 30) bmiCategory = 'Overweight';
-          else if (bmiValue >= 30) bmiCategory = 'Obese';
+          if (bmiValue < 18.5) {
+            bmiCategory = 'Underweight';
+            bmiColor = AppColors.warning;
+          } else if (bmiValue >= 25 && bmiValue < 30) {
+            bmiCategory = 'Overweight';
+            bmiColor = AppColors.warning;
+          } else if (bmiValue >= 30) {
+            bmiCategory = 'Obese';
+            bmiColor = AppColors.error;
+          } else {
+            bmiCategory = 'Normal';
+            bmiColor = AppColors.success;
+          }
         }
 
         if (!hasMeasurements) {
@@ -621,8 +1073,9 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
                     value: bmi,
                     subtitle: bmiCategory,
                     icon: Icons.calculate,
-                    backgroundColor: AppColors.lightBlue,
-                    textColor: AppColors.blue,
+                    backgroundColor: bmiColor.withOpacity(0.1),
+                    textColor: bmiColor,
+                    iconColor: bmiColor,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -630,6 +1083,7 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
                   child: StatCard(
                     title: 'Consistency',
                     value: '${(progressProvider.consistencyScore * 100).toInt()}%',
+                    subtitle: 'workout consistency',
                     icon: Icons.trending_up,
                     backgroundColor: AppColors.lightYellow,
                     textColor: AppColors.darkYellow,
@@ -806,5 +1260,45 @@ class _ProgressScreenState extends State<ProgressScreen> with AutomaticKeepAlive
         ],
       ),
     );
+  }
+
+  // Helper methods
+  String _getTodayName() {
+    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final todayIndex = DateTime.now().weekday - 1;
+    return weekdays[todayIndex];
+  }
+
+  IconData _getMealIcon(String mealType) {
+    switch (mealType.toUpperCase()) {
+      case 'BREAKFAST':
+        return Icons.free_breakfast;
+      case 'LUNCH':
+        return Icons.lunch_dining;
+      case 'DINNER':
+        return Icons.dinner_dining;
+      case 'SNACK':
+      case 'SNACK_2':
+        return Icons.cake;
+      default:
+        return Icons.restaurant;
+    }
+  }
+
+  String _formatMealType(String mealType) {
+    switch (mealType.toUpperCase()) {
+      case 'BREAKFAST':
+        return 'Breakfast';
+      case 'LUNCH':
+        return 'Lunch';
+      case 'DINNER':
+        return 'Dinner';
+      case 'SNACK':
+        return 'Snack';
+      case 'SNACK_2':
+        return 'Afternoon Snack';
+      default:
+        return mealType;
+    }
   }
 }

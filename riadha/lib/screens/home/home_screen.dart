@@ -5,7 +5,7 @@ import '../../providers/workout_provider.dart';
 import '../../providers/progress_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/meal_provider.dart';
-import '../workout/workout_generation_screen.dart';
+import '../workout/workout_preview_screen.dart';
 import '../meals/meal_plan_screen.dart';
 import '../progress/progress_screen.dart';
 
@@ -21,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = [
     const HomeContent(),
-    WorkoutGenerationScreen(),
+    const WorkoutPreviewScreen(),
     const MealPlanScreen(),
     const ProgressScreen(),
   ];
@@ -157,6 +157,11 @@ class _HomeContentState extends State<HomeContent> {
                       'assets/images/logo.png',
                       height: 30,
                       width: 30,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.fitness_center,
+                        color: AppColors.blue,
+                        size: 24,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -382,42 +387,69 @@ class _HomeContentState extends State<HomeContent> {
                     icon: Icons.fitness_center,
                     color: AppColors.blue,
                     bgColor: AppColors.lightBlue,
-                    onTap: () => Navigator.pushNamed(context, '/workout-generation'),
+                    onTap: () {
+                      // Navigate to workout preview tab
+                      final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                      homeState?.setState(() {
+                        homeState._selectedIndex = 1;
+                      });
+                    },
                   ),
                   _buildQuickActionCard(
                     title: 'MEAL PLAN',
                     icon: Icons.restaurant,
                     color: AppColors.yellow,
                     bgColor: AppColors.lightYellow,
-                    onTap: () => Navigator.pushNamed(context, '/meal-plan'),
+                    onTap: () {
+                      final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                      homeState?.setState(() {
+                        homeState._selectedIndex = 2;
+                      });
+                    },
                   ),
                   _buildQuickActionCard(
                     title: 'FRIENDS',
                     icon: Icons.people,
                     color: AppColors.blue,
                     bgColor: AppColors.lightBlue,
-                    onTap: () => Navigator.pushNamed(context, '/friends'),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                   _buildQuickActionCard(
                     title: 'LEADERBOARD',
                     icon: Icons.emoji_events,
                     color: AppColors.yellow,
                     bgColor: AppColors.lightYellow,
-                    onTap: () => Navigator.pushNamed(context, '/leaderboard'),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                   _buildQuickActionCard(
                     title: 'CHALLENGES',
                     icon: Icons.flag,
                     color: AppColors.blue,
                     bgColor: AppColors.lightBlue,
-                    onTap: () => Navigator.pushNamed(context, '/challenges'),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                   _buildQuickActionCard(
                     title: 'PREMIUM',
                     icon: Icons.star,
                     color: AppColors.yellow,
                     bgColor: AppColors.lightYellow,
-                    onTap: () => Navigator.pushNamed(context, '/subscription'),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -464,7 +496,12 @@ class _HomeContentState extends State<HomeContent> {
                   title: 'Generate New Workout',
                   subtitle: 'Create your personalized plan',
                   icon: Icons.fitness_center,
-                  onTap: () => Navigator.pushNamed(context, '/workout-generation'),
+                  onTap: () {
+                    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+                    homeState?.setState(() {
+                      homeState._selectedIndex = 1;
+                    });
+                  },
                 ),
               
               const SizedBox(height: 30),
@@ -644,7 +681,12 @@ class _HomeContentState extends State<HomeContent> {
     required Color bgColor,
   }) {
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/progress'),
+      onTap: () {
+        final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+        homeState?.setState(() {
+          homeState._selectedIndex = 3;
+        });
+      },
       child: Container(
         decoration: BoxDecoration(
           color: bgColor,
