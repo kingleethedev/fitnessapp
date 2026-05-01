@@ -1,0 +1,50 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Meal Details: {{ meal.name }}{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+    <div style="background: var(--white); padding: 25px; border-radius: 15px;">
+        <h3>Meal Information</h3>
+        <table style="width: 100%; margin-top: 15px;">
+            <tr><td><strong>Name:</strong></td><td>{{ meal.name }}</td></tr>
+            <tr><td><strong>Type:</strong></td><td>{{ meal.get_meal_type_display }}</td></tr>
+            <tr><td><strong>Calories:</strong></td><td>{{ meal.calories|default:"-" }}</td></tr>
+            <tr><td><strong>Protein:</strong></td><td>{{ meal.protein|default:"-" }}g</td></tr>
+            <tr><td><strong>Carbs:</strong></td><td>{{ meal.carbs|default:"-" }}g</td></tr>
+            <tr><td><strong>Fats:</strong></td><td>{{ meal.fats|default:"-" }}g</td></tr>
+            <tr><td><strong>Dietary:</strong></td><td>
+                {% if meal.is_vegetarian %}🌱 Vegetarian {% endif %}
+                {% if meal.is_vegan %}🌿 Vegan {% endif %}
+                {% if meal.is_gluten_free %}🚫 Gluten Free {% endif %}
+            </td></tr>
+        </table>
+    </div>
+    
+    <div style="background: var(--white); padding: 25px; border-radius: 15px;">
+        {% if meal.image %}
+            <h3>Meal Image</h3>
+            <img src="{{ meal.image.url }}" alt="{{ meal.name }}" style="max-width: 100%; border-radius: 10px; margin-top: 10px;">
+        {% endif %}
+    </div>
+</div>
+
+<div style="background: var(--white); padding: 25px; border-radius: 15px; margin-top: 20px;">
+    <h3>Description</h3>
+    <p>{{ meal.description|default:"No description" }}</p>
+    
+    <h3 style="margin-top: 15px;">Ingredients</h3>
+    <p>{{ meal.ingredients|default:"Not specified"|linebreaks }}</p>
+    
+    <h3 style="margin-top: 15px;">Instructions</h3>
+    <p>{{ meal.instructions|default:"Not specified"|linebreaks }}</p>
+</div>
+
+<div style="margin-top: 20px; display: flex; gap: 10px;">
+    <a href="/admin-panel/meals/{{ meal.id }}/edit/" class="btn btn-primary">
+        <i class="fas fa-edit"></i> Edit Meal
+    </a>
+    <a href="/admin-panel/meals/" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Meals
+    </a>
+</div>
+{% endblock %}

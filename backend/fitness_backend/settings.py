@@ -22,7 +22,9 @@ ALLOWED_HOSTS = [
     "localhost",
     "fitnessapp-4oeh.onrender.com",
     "riadha.app",
-    ".onrender.com"
+    ".onrender.com",
+    'hardly-urgency-length.ngrok-free.dev',
+    '*.ngrok-free.dev'
 ]
 
 # Add any additional hosts from environment variable
@@ -31,7 +33,7 @@ if os.getenv('ALLOWED_HOSTS'):
 
 # Application definition
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    # 'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -57,6 +59,7 @@ INSTALLED_APPS = [
     'apps.payments',
     'apps.social',
     'apps.analytics',
+    'admin_panel',
 ]
 
 MIDDLEWARE = [

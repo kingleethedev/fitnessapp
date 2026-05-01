@@ -1,0 +1,95 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Users Management{% endblock %}
+
+{% block content %}
+<div class="search-bar">
+    <input type="text" id="search-input" placeholder="Search users..." class="form-control">
+    <button class="btn btn-primary" onclick="searchUsers()">
+        <i class="fas fa-search"></i> Search
+    </button>
+</div>
+
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Subscription</th>
+                <th>Streak</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="users-table-body">
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    let currentPage = 1;
+    let currentSearch = '';
+    
+    async function loadUsers() {
+        try {
+            // FIXED: Use /dashboard/api/ instead of /admin/api/
+            const response = await fetch(`/dashboard/api/users/list/?page=${currentPage}&search=${currentSearch}`);
+            const data = await response.json();
+            
+            const tbody = document.getElementById('users-table-body');
+            tbody.innerHTML = '';
+            
+            if (!data.users || data.users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No users found</td></tr>';
+                return;
+            }
+            
+            data.users.forEach(user => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><a href="/dashboard/users/${user.id}/">${user.username}</a></td>
+                    <td>${user.email}</td>
+                    <td><span class="badge badge-active">${user.subscription_tier || 'FREE'}</span></td>
+                    <td>🔥 ${user.streak_days || 0}</td>
+                    <td>${user.is_active ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-inactive">Inactive</span>'}</td>
+                    <td>
+                        <a href="/dashboard/users/${user.id}/edit/" class="btn btn-secondary" style="padding: 5px 10px;">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button onclick="banUser(${user.id})" class="btn btn-warning" style="padding: 5px 10px;">
+                            <i class="fas fa-ban"></i>
+                        </button>
+                    </td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading users:', error);
+            document.getElementById('users-table-body').innerHTML = '<tr><td colspan="6" style="text-align: center;">Error loading users</td></tr>';
+        }
+    }
+    
+    function searchUsers() {
+        currentSearch = document.getElementById('search-input').value;
+        currentPage = 1;
+        loadUsers();
+    }
+    
+    async function banUser(userId) {
+        if (confirm('Ban/unban this user?')) {
+            const response = await fetch(`/dashboard/api/users/${userId}/ban/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            const data = await response.json();
+            if (data.success) loadUsers();
+        }
+    }
+    
+    loadUsers();
+    
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') searchUsers();
+    });
+</script>
+{% endblock %}

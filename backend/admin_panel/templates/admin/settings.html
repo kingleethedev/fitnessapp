@@ -1,0 +1,27 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div style="background: white; padding: 30px; border-radius: 15px;">
+    <h3>General Settings</h3>
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>App Name</label>
+            <input type="text" name="app_name" class="form-control" value="Fitness App">
+        </div>
+        <div class="form-group">
+            <label>Contact Email</label>
+            <input type="email" name="contact_email" class="form-control" value="admin@fitnessapp.com">
+        </div>
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+    </form>
+</div>
+
+<div style="margin-top: 30px; background: white; padding: 30px; border-radius: 15px;">
+    <h3 style="color: var(--danger);">Danger Zone</h3>
+    <button class="btn btn-danger" onclick="if(confirm('Are you sure?')) alert('Clear cache functionality')">
+        <i class="fas fa-trash"></i> Clear Cache
+    </button>
+</div>
+{% endblock %}

@@ -1,0 +1,255 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Payments Management{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card primary">
+        <div class="stat-title">Total Revenue</div>
+        <div class="stat-value" id="total-revenue">$ -</div>
+    </div>
+    <div class="stat-card secondary">
+        <div class="stat-title">Monthly Revenue</div>
+        <div class="stat-value" id="monthly-revenue">$ -</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-title">Active Subscriptions</div>
+        <div class="stat-value" id="active-subscriptions">-</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-title">Success Rate</div>
+        <div class="stat-value" id="success-rate">-</div>
+    </div>
+</div>
+
+<div style="margin-bottom: 30px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3>Subscription Plans</h3>
+        <button class="btn btn-primary" onclick="showAddPlanModal()">
+            <i class="fas fa-plus"></i> Add Plan
+        </button>
+    </div>
+    
+    <div class="data-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Plan Name</th>
+                    <th>Price</th>
+                    <th>Interval</th>
+                    <th>Features</th>
+                    <th>Subscribers</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="plans-table-body">
+                <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<h3>Recent Transactions</h3>
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Amount</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="transactions-table-body">
+            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Plan Modal -->
+<div id="addPlanModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Add Subscription Plan</div>
+        <form id="addPlanForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Plan Name</label>
+                <input type="text" name="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Stripe Price ID</label>
+                <input type="text" name="stripe_price_id" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Amount ($)</label>
+                <input type="number" name="amount" class="form-control" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label>Interval</label>
+                <select name="interval" class="form-control">
+                    <option value="month">Monthly</option>
+                    <option value="year">Yearly</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Features (comma separated)</label>
+                <input type="text" name="features" class="form-control" placeholder="Unlimited workouts, Premium meals, etc.">
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="hideModal('addPlanModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Plan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    async function loadPaymentStats() {
+        try {
+            const response = await fetch('/admin/api/payments/stats/');
+            const data = await response.json();
+            
+            document.getElementById('total-revenue').textContent = '$' + data.total_revenue.toLocaleString();
+            document.getElementById('monthly-revenue').textContent = '$' + data.monthly_revenue.toLocaleString();
+            document.getElementById('active-subscriptions').textContent = data.active_subscriptions;
+            document.getElementById('success-rate').textContent = data.success_rate + '%';
+        } catch (error) {
+            console.error('Error loading payment stats:', error);
+        }
+    }
+    
+    async function loadPlans() {
+        try {
+            const response = await fetch('/admin/api/plans/list/');
+            const data = await response.json();
+            
+            const tbody = document.getElementById('plans-table-body');
+            tbody.innerHTML = '';
+            
+            if (data.plans.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No subscription plans</td></tr>';
+                return;
+            }
+            
+            data.plans.forEach(plan => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${plan.name}</td>
+                    <td><strong>$${plan.amount}</strong></td>
+                    <td>${plan.interval}</td>
+                    <td>${plan.features || '-'}</td>
+                    <td>${plan.subscribers_count}</td>
+                    <td>${plan.is_active ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-inactive">Inactive</span>'}</td>
+                    <td>
+                        <button onclick="togglePlan(${plan.id})" class="btn btn-secondary" style="padding: 5px 10px;">
+                            <i class="fas ${plan.is_active ? 'fa-ban' : 'fa-check'}"></i>
+                        </button>
+                        <button onclick="deletePlan(${plan.id})" class="btn btn-danger" style="padding: 5px 10px;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading plans:', error);
+        }
+    }
+    
+    async function loadTransactions() {
+        try {
+            const response = await fetch('/admin/api/transactions/list/');
+            const data = await response.json();
+            
+            const tbody = document.getElementById('transactions-table-body');
+            tbody.innerHTML = '';
+            
+            if (data.transactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No transactions</td></tr>';
+                return;
+            }
+            
+            data.transactions.forEach(transaction => {
+                const statusClass = transaction.status === 'SUCCEEDED' ? 'badge-active' : 'badge-inactive';
+                const statusText = transaction.status === 'SUCCEEDED' ? 'Success' : 'Failed';
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${transaction.user_name}</td>
+                    <td><strong>$${transaction.amount}</strong></td>
+                    <td>${transaction.payment_type}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td>${transaction.created_at}</td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+        }
+    }
+    
+    function showAddPlanModal() {
+        showModal('addPlanModal');
+    }
+    
+    document.getElementById('addPlanForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        
+        const response = await fetch('/admin/api/plans/create/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            hideModal('addPlanModal');
+            loadPlans();
+            e.target.reset();
+        } else {
+            alert('Error creating plan');
+        }
+    });
+    
+    async function togglePlan(planId) {
+        const response = await fetch(`/admin/api/plans/${planId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        const data = await response.json();
+        if (data.success) {
+            loadPlans();
+        }
+    }
+    
+    async function deletePlan(planId) {
+        if (confirm('Are you sure you want to delete this plan?')) {
+            const response = await fetch(`/admin/api/plans/${planId}/delete/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            const data = await response.json();
+            if (data.success) {
+                loadPlans();
+            } else {
+                alert('Error deleting plan');
+            }
+        }
+    }
+    
+    loadPaymentStats();
+    loadPlans();
+    loadTransactions();
+    
+    setInterval(() => {
+        loadPaymentStats();
+        loadTransactions();
+    }, 30000);
+</script>
+{% endblock %}

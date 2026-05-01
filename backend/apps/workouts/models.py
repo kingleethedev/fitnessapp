@@ -114,6 +114,7 @@ class TemplateWorkout(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+    image = models.ImageField(upload_to='workout_images/', null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} - {self.goal} - {self.experience_level}"

@@ -1,0 +1,336 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Edit Workout Template: {{ workout.name }}{% endblock %}
+
+{% block content %}
+<style>
+    .form-container {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--gray-dark);
+    }
+    .form-control {
+        width: 100%;
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+    select.form-control {
+        cursor: pointer;
+    }
+    textarea.form-control {
+        resize: vertical;
+        min-height: 100px;
+    }
+    .exercise-row {
+        background: var(--gray-light);
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #e0e0e0;
+    }
+    .exercise-row h4 {
+        margin-bottom: 10px;
+        color: var(--primary-dark);
+    }
+    .exercise-inputs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .btn-remove {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+    .btn-remove:hover {
+        opacity: 0.9;
+    }
+    .btn-add {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    .btn-add:hover {
+        opacity: 0.9;
+    }
+    .form-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 30px;
+        justify-content: flex-end;
+    }
+    .btn-submit {
+        background: var(--success);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+    }
+    .btn-cancel {
+        background: var(--gray);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .help-text {
+        font-size: 12px;
+        color: var(--gray);
+        margin-top: 5px;
+    }
+    .image-preview {
+        margin-top: 10px;
+        max-width: 200px;
+    }
+    .image-preview img {
+        width: 100%;
+        border-radius: 8px;
+    }
+    .current-image {
+        margin-top: 10px;
+        padding: 10px;
+        background: var(--gray-light);
+        border-radius: 8px;
+    }
+</style>
+
+<div class="form-container">
+    <h2 style="margin-bottom: 25px;">Edit Workout: {{ workout.name }}</h2>
+    
+    <form method="POST" enctype="multipart/form-data" id="edit-workout-form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label>Workout Name *</label>
+            <input type="text" name="name" id="workout-name" class="form-control" value="{{ workout.name }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Duration (minutes) *</label>
+            <input type="number" name="duration" id="duration" class="form-control" required min="5" max="120" value="{{ workout.default_duration }}">
+        </div>
+        
+        <div class="form-group">
+            <label>Goal</label>
+            <select name="goal" id="goal" class="form-control">
+                <option value="FITNESS" {% if workout.goal == 'FITNESS' %}selected{% endif %}>Fitness (General)</option>
+                <option value="FAT_LOSS" {% if workout.goal == 'FAT_LOSS' %}selected{% endif %}>Fat Loss</option>
+                <option value="MUSCLE_GAIN" {% if workout.goal == 'MUSCLE_GAIN' %}selected{% endif %}>Muscle Gain</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Experience Level</label>
+            <select name="experience_level" id="experience-level" class="form-control">
+                <option value="BEGINNER" {% if workout.experience_level == 'BEGINNER' %}selected{% endif %}>Beginner</option>
+                <option value="INTERMEDIATE" {% if workout.experience_level == 'INTERMEDIATE' %}selected{% endif %}>Intermediate</option>
+                <option value="ADVANCED" {% if workout.experience_level == 'ADVANCED' %}selected{% endif %}>Advanced</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Training Location</label>
+            <select name="training_location" id="training-location" class="form-control">
+                <option value="HOME" {% if workout.training_location == 'HOME' %}selected{% endif %}>Home</option>
+                <option value="GYM" {% if workout.training_location == 'GYM' %}selected{% endif %}>Gym</option>
+                <option value="OUTSIDE" {% if workout.training_location == 'OUTSIDE' %}selected{% endif %}>Outside</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" id="description" class="form-control" rows="3">{{ workout.description|default:'' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>Workout Image</label>
+            {% if workout.image %}
+                <div class="current-image">
+                    <strong>Current Image:</strong><br>
+                    <img src="{{ workout.image.url }}" alt="{{ workout.name }}" style="max-width: 150px; border-radius: 8px; margin-top: 5px;">
+                </div>
+            {% endif %}
+            <input type="file" name="image" id="workout-image" class="form-control" accept="image/*" onchange="previewImage(this)">
+            <div id="image-preview" class="image-preview"></div>
+            <div class="help-text">Upload a new image to replace the current one (optional)</div>
+        </div>
+        
+        <div class="form-group">
+            <label>Exercises</label>
+            <div id="exercises-container"></div>
+            <button type="button" class="btn-add" onclick="addExercise()">
+                <i class="fas fa-plus"></i> Add Exercise
+            </button>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="is_active" {% if workout.is_active %}checked{% endif %}>
+                Active (visible to users)
+            </label>
+        </div>
+        
+        <input type="hidden" name="exercises_json" id="exercises-json">
+        
+        <div class="form-actions">
+            <a href="{% url 'admin_workout_library' %}" class="btn-cancel">Cancel</a>
+            <button type="submit" class="btn-submit">Save Changes</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    let exerciseCount = 0;
+    let existingExercises = {{ workout.exercises|safe }};
+    
+    function addExercise(exerciseData = null) {
+        const container = document.getElementById('exercises-container');
+        const exerciseId = exerciseCount++;
+        
+        const exerciseDiv = document.createElement('div');
+        exerciseDiv.className = 'exercise-row';
+        exerciseDiv.id = `exercise-${exerciseId}`;
+        
+        const nameValue = exerciseData ? exerciseData.name : '';
+        const setsValue = exerciseData ? (exerciseData.sets || 3) : 3;
+        const repsValue = exerciseData && exerciseData.reps ? exerciseData.reps : '';
+        const durationValue = exerciseData && exerciseData.duration ? exerciseData.duration : '';
+        const restValue = exerciseData ? (exerciseData.rest || 30) : 30;
+        
+        exerciseDiv.innerHTML = `
+            <h4>Exercise ${exerciseCount}</h4>
+            <div class="exercise-inputs">
+                <input type="text" placeholder="Exercise Name" class="form-control exercise-name" value="${nameValue}" required>
+                <input type="number" placeholder="Sets" class="form-control exercise-sets" value="${setsValue}">
+                <input type="number" placeholder="Reps" class="form-control exercise-reps" value="${repsValue}">
+                <input type="number" placeholder="Duration (sec)" class="form-control exercise-duration" value="${durationValue}">
+                <input type="number" placeholder="Rest (sec)" class="form-control exercise-rest" value="${restValue}">
+            </div>
+            <button type="button" class="btn-remove" onclick="removeExercise(${exerciseId})">
+                <i class="fas fa-trash"></i> Remove Exercise
+            </button>
+        `;
+        
+        container.appendChild(exerciseDiv);
+        updateExercisesJson();
+    }
+    
+    function removeExercise(exerciseId) {
+        const exerciseDiv = document.getElementById(`exercise-${exerciseId}`);
+        if (exerciseDiv) {
+            exerciseDiv.remove();
+            updateExercisesJson();
+        }
+    }
+    
+    function updateExercisesJson() {
+        const exercises = [];
+        const exerciseRows = document.querySelectorAll('.exercise-row');
+        
+        exerciseRows.forEach(row => {
+            const name = row.querySelector('.exercise-name')?.value;
+            if (name) {
+                const exercise = {
+                    name: name,
+                    sets: parseInt(row.querySelector('.exercise-sets')?.value) || 3,
+                    rest: parseInt(row.querySelector('.exercise-rest')?.value) || 30
+                };
+                
+                const reps = row.querySelector('.exercise-reps')?.value;
+                const duration = row.querySelector('.exercise-duration')?.value;
+                
+                if (reps && parseInt(reps) > 0) {
+                    exercise.reps = parseInt(reps);
+                }
+                if (duration && parseInt(duration) > 0) {
+                    exercise.duration = parseInt(duration);
+                }
+                
+                exercises.push(exercise);
+            }
+        });
+        
+        document.getElementById('exercises-json').value = JSON.stringify(exercises);
+    }
+    
+    function previewImage(input) {
+        const preview = document.getElementById('image-preview');
+        preview.innerHTML = '';
+        
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                preview.appendChild(img);
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+    
+    // Load existing exercises
+    if (existingExercises && existingExercises.length > 0) {
+        existingExercises.forEach(ex => {
+            addExercise(ex);
+        });
+    } else {
+        addExercise();
+    }
+    
+    document.getElementById('edit-workout-form').addEventListener('submit', function(e) {
+        updateExercisesJson();
+        
+        const workoutName = document.getElementById('workout-name').value;
+        const exercises = document.getElementById('exercises-json').value;
+        
+        if (!workoutName) {
+            e.preventDefault();
+            alert('Please enter a workout name');
+            return false;
+        }
+        
+        const exercisesParsed = JSON.parse(exercises || '[]');
+        if (exercisesParsed.length === 0) {
+            e.preventDefault();
+            alert('Please add at least one exercise');
+            return false;
+        }
+        
+        return true;
+    });
+    
+    // Update JSON when inputs change
+    document.getElementById('exercises-container').addEventListener('input', updateExercisesJson);
+</script>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card primary">
+        <div class="stat-title">Total Users</div>
+        <div class="stat-value" id="total-users">-</div>
+    </div>
+    <div class="stat-card secondary">
+        <div class="stat-title">Active Users</div>
+        <div class="stat-value" id="active-users">-</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-title">Total Workouts</div>
+        <div class="stat-value" id="total-workouts">-</div>
+    </div>
+</div>
+
+<div class="data-table">
+    <table>
+        <thead><tr><th>Welcome to Admin Dashboard</th></tr></thead>
+        <tbody>
+            <tr><td style="text-align: center; padding: 40px;">
+                <h2>Welcome, {{ request.user.username }}!</h2>
+                <p>Select an option from the sidebar to manage your fitness platform.</p>
+            </td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function loadStats() {
+        try {
+            // FIXED: Use /dashboard/api/ instead of /admin-panel/api/
+            const response = await fetch('/dashboard/api/dashboard/stats/');
+            const data = await response.json();
+            document.getElementById('total-users').textContent = data.total_users || 0;
+            document.getElementById('active-users').textContent = data.active_users || 0;
+            document.getElementById('total-workouts').textContent = data.total_workouts || 0;
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+    loadStats();
+    // Refresh every 30 seconds
+    setInterval(loadStats, 30000);
+</script>
+{% endblock %}

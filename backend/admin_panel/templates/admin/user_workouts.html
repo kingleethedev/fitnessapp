@@ -1,0 +1,220 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}User Workouts{% endblock %}
+
+{% block content %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        border-left: 4px solid var(--primary);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .stat-title { color: var(--gray); font-size: 13px; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 700; }
+    .date-group { margin-bottom: 30px; }
+    .date-header {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--primary-light);
+        color: var(--primary-dark);
+    }
+    .workout-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border-left: 4px solid var(--primary);
+        transition: transform 0.2s;
+    }
+    .workout-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .workout-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .workout-meta {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+        font-size: 13px;
+        color: var(--gray);
+    }
+    .badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .badge-completed { background: #d4edda; color: #155724; }
+    .badge-pending { background: #fff3cd; color: #856404; }
+    .search-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .search-bar input {
+        flex: 1;
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+    }
+    .btn {
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .exercise-list { margin-top: 12px; padding-left: 20px; }
+    .exercise-item { padding: 3px 0; font-size: 13px; }
+    @media (max-width: 768px) {
+        .workout-meta { flex-direction: column; gap: 8px; }
+    }
+</style>
+
+<div class="stats-grid">
+    <div class="stat-card primary">
+        <div class="stat-title">Total Workouts</div>
+        <div class="stat-value" id="total-workouts">-</div>
+    </div>
+    <div class="stat-card secondary">
+        <div class="stat-title">Completed</div>
+        <div class="stat-value" id="completed-workouts">-</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-title">Completion Rate</div>
+        <div class="stat-value" id="completion-rate">-</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-title">Active Users</div>
+        <div class="stat-value" id="active-users">-</div>
+    </div>
+</div>
+
+<div class="search-bar">
+    <input type="text" id="search-input" placeholder="Search by username..." class="form-control">
+    <button class="btn btn-primary" onclick="searchWorkouts()"><i class="fas fa-search"></i> Search</button>
+</div>
+
+<div id="workouts-container"><div style="text-align: center; padding: 40px;">Loading workouts...</div></div>
+
+<script>
+    let allWorkouts = [];
+    let currentSearch = '';
+    
+    async function loadWorkouts() {
+        try {
+            const response = await fetch(`/dashboard/api/user-workouts/list/?search=${encodeURIComponent(currentSearch)}`);
+            const data = await response.json();
+            
+            document.getElementById('total-workouts').textContent = data.total_workouts || 0;
+            document.getElementById('completed-workouts').textContent = data.completed_workouts || 0;
+            document.getElementById('completion-rate').textContent = (data.completion_rate || 0) + '%';
+            document.getElementById('active-users').textContent = data.unique_users || 0;
+            
+            allWorkouts = data.workouts || [];
+            displayGroupedWorkouts(allWorkouts);
+        } catch (error) {
+            console.error('Error loading workouts:', error);
+            document.getElementById('workouts-container').innerHTML = '<div style="background: white; padding: 40px; text-align: center; color: var(--danger);">Error loading workouts</div>';
+        }
+    }
+    
+    function displayGroupedWorkouts(workouts) {
+        const container = document.getElementById('workouts-container');
+        if (!workouts || workouts.length === 0) {
+            container.innerHTML = '<div style="background: white; padding: 40px; text-align: center;">No workouts found</div>';
+            return;
+        }
+        
+        const today = new Date(); today.setHours(0,0,0,0);
+        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+        const thisWeek = new Date(today); thisWeek.setDate(thisWeek.getDate() - 7);
+        
+        const groups = { today: [], yesterday: [], week: [], older: [] };
+        
+        workouts.forEach(w => {
+            if (!w.date) { groups.older.push(w); return; }
+            const d = new Date(w.date); d.setHours(0,0,0,0);
+            if (d.getTime() === today.getTime()) groups.today.push(w);
+            else if (d.getTime() === yesterday.getTime()) groups.yesterday.push(w);
+            else if (d >= thisWeek) groups.week.push(w);
+            else groups.older.push(w);
+        });
+        
+        let html = '';
+        if (groups.today.length) html += `<div class="date-group"><div class="date-header"><i class="fas fa-sun"></i> Today (${groups.today.length})</div>${renderCards(groups.today)}</div>`;
+        if (groups.yesterday.length) html += `<div class="date-group"><div class="date-header"><i class="fas fa-cloud"></i> Yesterday (${groups.yesterday.length})</div>${renderCards(groups.yesterday)}</div>`;
+        if (groups.week.length) html += `<div class="date-group"><div class="date-header"><i class="fas fa-calendar-week"></i> This Week (${groups.week.length})</div>${renderCards(groups.week)}</div>`;
+        if (groups.older.length) html += `<div class="date-group"><div class="date-header"><i class="fas fa-history"></i> Earlier (${groups.older.length})</div>${renderCards(groups.older)}</div>`;
+        container.innerHTML = html;
+    }
+    
+    function renderCards(workouts) {
+        return workouts.map(w => {
+            const exercises = (w.exercises || []).slice(0,3).map(e => {
+                if (e.reps) return `<div class="exercise-item">• ${e.name}: ${e.sets || 1} × ${e.reps} reps</div>`;
+                return `<div class="exercise-item">• ${e.name}: ${e.sets || 1} × ${e.duration}s</div>`;
+            }).join('');
+            const more = (w.exercises || []).length > 3 ? `<div class="exercise-item" style="color: var(--gray);">+ ${(w.exercises || []).length - 3} more...</div>` : '';
+            
+            return `
+                <div class="workout-card">
+                    <div class="workout-title">
+                        <span><i class="fas fa-user-circle"></i> ${w.user__username}</span>
+                        <span class="badge ${w.is_completed ? 'badge-completed' : 'badge-pending'}">${w.is_completed ? '✓ Completed' : '⏳ Pending'}</span>
+                    </div>
+                    <div class="workout-meta">
+                        <span><i class="fas fa-calendar"></i> ${w.date}</span>
+                        <span><i class="fas fa-clock"></i> ${w.duration} min</span>
+                        <span><i class="fas fa-fire"></i> ${w.calories_burned || 0} cal</span>
+                    </div>
+                    <div class="exercise-list"><strong>Exercises:</strong> ${exercises}${more}</div>
+                    ${w.completed_at ? `<div style="margin-top: 10px; font-size: 12px; color: var(--gray);"><i class="fas fa-check-circle"></i> Completed: ${w.completed_at}</div>` : ''}
+                    <div style="margin-top: 15px;"><button onclick="deleteWorkout(${w.id})" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete</button></div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    function searchWorkouts() { currentSearch = document.getElementById('search-input').value; loadWorkouts(); }
+    
+    async function deleteWorkout(id) {
+        if (confirm('Delete this workout?')) {
+            const r = await fetch(`/dashboard/api/user-workouts/${id}/delete/`, { 
+                method: 'DELETE', 
+                headers: { 'X-CSRFToken': getCookie('csrftoken') } 
+            });
+            if (r.ok) loadWorkouts();
+            else alert('Error deleting workout');
+        }
+    }
+    
+    loadWorkouts();
+</script>
+{% endblock %}

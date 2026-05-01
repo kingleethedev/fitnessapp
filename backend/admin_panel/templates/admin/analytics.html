@@ -1,0 +1,42 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Analytics{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card primary">
+        <div class="stat-title">Total Users</div>
+        <div class="stat-value" id="total-users">-</div>
+    </div>
+    <div class="stat-card secondary">
+        <div class="stat-title">Active Users</div>
+        <div class="stat-value" id="active-users">-</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-title">Completion Rate</div>
+        <div class="stat-value" id="completion-rate">-</div>
+    </div>
+</div>
+
+<div class="chart-container">
+    <h3>User Growth</h3>
+    <canvas id="user-growth-chart" style="max-height: 300px;"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    async function loadAnalytics() {
+        try {
+            const response = await fetch('/dashboard/api/analytics/data/');
+            const data = await response.json();
+            
+            document.getElementById('total-users').textContent = data.total_users || 0;
+            document.getElementById('active-users').textContent = data.active_users || 0;
+            document.getElementById('completion-rate').textContent = (data.completion_rate?.completed || 0) + '%';
+        } catch (error) {
+            console.error('Error loading analytics:', error);
+        }
+    }
+    
+    loadAnalytics();
+</script>
+{% endblock %}

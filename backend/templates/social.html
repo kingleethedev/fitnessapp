@@ -1,0 +1,166 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Social Management{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card primary">
+        <div class="stat-title">Total Friendships</div>
+        <div class="stat-value" id="total-friendships">-</div>
+    </div>
+    <div class="stat-card secondary">
+        <div class="stat-title">Active Challenges</div>
+        <div class="stat-value" id="active-challenges">-</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-title">Pending Requests</div>
+        <div class="stat-value" id="pending-requests">-</div>
+    </div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h3>Active Challenges</h3>
+    <a href="{% url 'admin_challenge_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Create Challenge
+    </a>
+</div>
+
+<div class="data-table" style="margin-bottom: 30px;">
+    <table>
+        <thead>
+            <tr>
+                <th>Challenge Name</th>
+                <th>Type</th>
+                <th>Target</th>
+                <th>Duration</th>
+                <th>Participants</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="challenges-table-body">
+            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h3>Friend Requests</h3>
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th>From User</th>
+                <th>To User</th>
+                <th>Date</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="requests-table-body">
+            <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function loadSocialStats() {
+        try {
+            const response = await fetch('/admin/api/social/stats/');
+            const data = await response.json();
+            
+            document.getElementById('total-friendships').textContent = data.total_friendships;
+            document.getElementById('active-challenges').textContent = data.active_challenges;
+            document.getElementById('pending-requests').textContent = data.pending_requests;
+        } catch (error) {
+            console.error('Error loading social stats:', error);
+        }
+    }
+    
+    async function loadChallenges() {
+        try {
+            const response = await fetch('/admin/api/challenges/list/');
+            const data = await response.json();
+            
+            const tbody = document.getElementById('challenges-table-body');
+            tbody.innerHTML = '';
+            
+            if (data.challenges.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No active challenges</td></tr>';
+                return;
+            }
+            
+            data.challenges.forEach(challenge => {
+                const statusClass = challenge.is_active ? 'badge-active' : 'badge-inactive';
+                const statusText = challenge.is_active ? 'Active' : 'Inactive';
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${challenge.name}</td>
+                    <td><span class="badge badge-primary">${challenge.challenge_type}</span></td>
+                    <td>${challenge.target_value}</td>
+                    <td>${challenge.start_date} to ${challenge.end_date}</td>
+                    <td>${challenge.participants_count}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button onclick="deleteChallenge(${challenge.id})" class="btn btn-danger" style="padding: 5px 10px;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading challenges:', error);
+        }
+    }
+    
+    async function loadFriendRequests() {
+        try {
+            const response = await fetch('/admin/api/friend-requests/list/');
+            const data = await response.json();
+            
+            const tbody = document.getElementById('requests-table-body');
+            tbody.innerHTML = '';
+            
+            if (data.requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No pending requests</td></tr>';
+                return;
+            }
+            
+            data.requests.forEach(request => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${request.from_user}</td>
+                    <td>${request.to_user}</td>
+                    <td>${request.created_at}</td>
+                    <td><span class="badge badge-warning">Pending</span></td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading friend requests:', error);
+        }
+    }
+    
+    async function deleteChallenge(challengeId) {
+        if (confirm('Are you sure you want to delete this challenge?')) {
+            const response = await fetch(`/admin/api/challenges/${challengeId}/delete/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            const data = await response.json();
+            if (data.success) {
+                loadChallenges();
+            } else {
+                alert('Error deleting challenge');
+            }
+        }
+    }
+    
+    loadSocialStats();
+    loadChallenges();
+    loadFriendRequests();
+    
+    setInterval(() => {
+        loadSocialStats();
+    }, 30000);
+</script>
+{% endblock %}

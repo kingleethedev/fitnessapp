@@ -1,0 +1,63 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Subscription Plans{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h3>Subscription Plans</h3>
+    <button class="btn btn-primary" onclick="showAddPlanModal()">
+        <i class="fas fa-plus"></i> Add Plan
+    </button>
+</div>
+
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th>Plan Name</th>
+                <th>Price</th>
+                <th>Interval</th>
+                <th>Features</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="plans-table-body">
+            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function loadPlans() {
+        try {
+            const response = await fetch('/dashboard/api/plans/list/');
+            const data = await response.json();
+            const tbody = document.getElementById('plans-table-body');
+            tbody.innerHTML = '';
+            
+            if (data.plans.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No subscription plans</td></tr>';
+                return;
+            }
+            
+            data.plans.forEach(plan => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${plan.name}</td>
+                    <td><strong>$${plan.amount}</strong></td>
+                    <td>${plan.interval}</td>
+                    <td>${plan.features || '-'}</td>
+                    <td><span class="badge badge-active">Active</span></td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading plans:', error);
+        }
+    }
+    
+    function showAddPlanModal() {
+        alert('Add plan functionality coming soon');
+    }
+    
+    loadPlans();
+</script>
+{% endblock %}

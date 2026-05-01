@@ -1,4 +1,3 @@
-from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
@@ -33,26 +32,27 @@ schema_view = get_schema_view(
     openapi.Info(
         title="Fitness App API",
         default_version='v1',
-        description="API documentation for Fitness App with Workouts and Meal Plans",
-        terms_of_service="https://www.fitnessapp.com/terms/",
-        contact=openapi.Contact(email="support@fitnessapp.com"),
-        license=openapi.License(name="Proprietary"),
+        description="API documentation for Fitness App",
     ),
     public=True,
 )
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/test/', test_api, name='test_api'),  # ADD THIS LINE
+    # Root URL - Welcome page
+    path('', TemplateView.as_view(template_name='welcome.html'), name='welcome'),
+    
+    # Custom Admin Panel
+    path('dashboard/', include('admin_panel.urls')),
+    
+    # API URLs
+    path('api/test/', test_api, name='test_api'),
     path('api/', include(router.urls)),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/webhooks/stripe/', StripeWebhookView.as_view({'post': 'create'}), name='stripe-webhook'),
     
-    # Swagger URLs
+    # Swagger
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
-    path('', TemplateView.as_view(template_name='welcome.html'), name='welcome'),
-    path('admin-dashboard/', TemplateView.as_view(template_name='admin_dashboard.html'), name='admin_dashboard'),
 ]
 
 if settings.DEBUG:

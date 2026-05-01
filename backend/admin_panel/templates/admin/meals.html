@@ -1,0 +1,106 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Meals Management{% endblock %}
+
+{% block content %}
+<div class="search-bar">
+    <input type="text" id="search-input" placeholder="Search meals..." class="form-control">
+    <button class="btn btn-secondary" onclick="filterByType('')">All</button>
+    <button class="btn btn-secondary" onclick="filterByType('BREAKFAST')">Breakfast</button>
+    <button class="btn btn-secondary" onclick="filterByType('LUNCH')">Lunch</button>
+    <button class="btn btn-secondary" onclick="filterByType('DINNER')">Dinner</button>
+    <button class="btn btn-secondary" onclick="filterByType('SNACK')">Snack</button>
+    <a href="{% url 'admin_meal_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Add Meal
+    </a>
+</div>
+
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Calories</th>
+                <th>Protein</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="meals-table-body">
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    let currentFilter = '';
+    let currentSearch = '';
+    
+    async function loadMeals() {
+        try {
+            // FIXED: Use /dashboard/api/ instead of /admin/api/
+            let url = '/dashboard/api/meals/list/';
+            if (currentSearch) url += `?search=${currentSearch}`;
+            if (currentFilter) url += `${currentSearch ? '&' : '?'}type=${currentFilter}`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            const tbody = document.getElementById('meals-table-body');
+            tbody.innerHTML = '';
+            
+            if (!data.meals || data.meals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No meals found</td></tr>';
+                return;
+            }
+            
+            data.meals.forEach(meal => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><a href="/dashboard/meals/${meal.id}/">${meal.name}</a></td>
+                    <td><span class="badge badge-primary">${meal.meal_type}</span></td>
+                    <td>${meal.calories || '-'}</td>
+                    <td>${meal.protein || '-'}g</td>
+                    <td>${meal.is_active ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-inactive">Inactive</span>'}</td>
+                    <td>
+                        <a href="/dashboard/meals/${meal.id}/edit/" class="btn btn-secondary" style="padding: 5px 10px;">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button onclick="deleteMeal(${meal.id})" class="btn btn-danger" style="padding: 5px 10px;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading meals:', error);
+        }
+    }
+    
+    function filterByType(type) {
+        currentFilter = type;
+        loadMeals();
+    }
+    
+    function searchMeals() {
+        currentSearch = document.getElementById('search-input').value;
+        loadMeals();
+    }
+    
+    async function deleteMeal(mealId) {
+        if (confirm('Delete this meal?')) {
+            const response = await fetch(`/dashboard/api/meals/${mealId}/delete/`, {
+                method: 'DELETE',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) loadMeals();
+        }
+    }
+    
+    loadMeals();
+    
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') searchMeals();
+    });
+</script>
+{% endblock %}

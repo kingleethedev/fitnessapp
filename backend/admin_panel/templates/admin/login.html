@@ -1,0 +1,82 @@
+{% extends 'admin/base.html' %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<style>
+    .login-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 80vh;
+    }
+    
+    .login-box {
+        background: var(--white);
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        width: 100%;
+        max-width: 400px;
+    }
+    
+    .login-logo {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .login-logo i {
+        font-size: 60px;
+        color: var(--primary);
+    }
+    
+    .login-logo h2 {
+        margin-top: 10px;
+        color: var(--gray-dark);
+    }
+    
+    .login-btn {
+        width: 100%;
+        padding: 12px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    
+    .login-btn:hover {
+        background: var(--primary-dark);
+    }
+</style>
+
+<div class="login-container">
+    <div class="login-box">
+        <div class="login-logo">
+            <i class="fas fa-dumbbell"></i>
+            <h2>Admin Login</h2>
+            <p style="color: var(--gray);">Enter your credentials to access the dashboard</p>
+        </div>
+        
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label><i class="fas fa-user"></i> Username</label>
+                <input type="text" name="username" class="form-control" required autofocus>
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-lock"></i> Password</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="login-btn">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

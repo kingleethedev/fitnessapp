@@ -1,0 +1,40 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}User Details: {{ user_data.username }}{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+    <div style="background: var(--white); padding: 25px; border-radius: 15px;">
+        <h3>Profile Information</h3>
+        <table style="width: 100%; margin-top: 15px;">
+            <tr><td><strong>Username:</strong></td><td>{{ user_data.username }}</td></tr>
+            <tr><td><strong>Email:</strong></td><td>{{ user_data.email }}</td></tr>
+            <tr><td><strong>Joined:</strong></td><td>{{ user_data.date_joined|date:"Y-m-d H:i" }}</td></tr>
+            <tr><td><strong>Last Login:</strong></td><td>{{ user_data.last_login|date:"Y-m-d H:i"|default:"Never" }}</td></tr>
+            <tr><td><strong>Subscription:</strong></td><td><span class="badge badge-active">{{ user_data.subscription_tier }}</span></td></tr>
+            <tr><td><strong>Streak Days:</strong></td><td>🔥 {{ user_data.streak_days }}</td></tr>
+        </table>
+    </div>
+    
+    <div style="background: var(--white); padding: 25px; border-radius: 15px;">
+        <h3>Fitness Stats</h3>
+        <table style="width: 100%; margin-top: 15px;">
+            <tr><td><strong>Height:</strong></td><td>{{ user_data.height|default:"Not set" }} cm</td></tr>
+            <tr><td><strong>Weight:</strong></td><td>{{ user_data.weight|default:"Not set" }} kg</td></tr>
+            <tr><td><strong>Goal:</strong></td><td>{{ user_data.get_goal_display|default:"Not set" }}</td></tr>
+            <tr><td><strong>Experience:</strong></td><td>{{ user_data.get_experience_level_display|default:"Not set" }}</td></tr>
+            <tr><td><strong>Workouts:</strong></td><td>{{ workout_count }}</td></tr>
+            <tr><td><strong>Total Minutes:</strong></td><td>{{ total_minutes }} min</td></tr>
+            <tr><td><strong>Meals Logged:</strong></td><td>{{ meal_count }}</td></tr>
+        </table>
+    </div>
+</div>
+
+<div style="margin-top: 20px; display: flex; gap: 10px;">
+    <a href="/admin-panel/users/{{ user_data.id }}/edit/" class="btn btn-primary">
+        <i class="fas fa-edit"></i> Edit User
+    </a>
+    <a href="/admin-panel/users/" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Users
+    </a>
+</div>
+{% endblock %}
