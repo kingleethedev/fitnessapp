@@ -20,11 +20,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY backend/ .
 
-# Create required dirs
-RUN mkdir -p /app/staticfiles /app/media /app/logs
+# Create required dirs with proper permissions
+RUN mkdir -p /app/staticfiles /app/media /app/logs && \
+    chmod -R 755 /app/media
 
-# Expose port (not strictly required but fine)
+# Expose port
 EXPOSE 8000
 
-# Start server (FIXED PORT ISSUE)
+# Start server
 CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn fitness_backend.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 2"]
