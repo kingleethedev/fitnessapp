@@ -7,6 +7,8 @@ from drf_yasg.views import get_schema_view
 from django.views.generic import TemplateView
 from drf_yasg import openapi
 
+from django.views.generic import RedirectView
+
 # Import viewsets
 from apps.accounts.views import AuthViewSet, UserViewSet, UserMetricViewSet, PasswordResetViewSet, test_api
 from apps.workouts.views import WorkoutViewSet, TemplateWorkoutViewSet
@@ -53,6 +55,9 @@ urlpatterns = [
     # Swagger
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    path('admin/login/', RedirectView.as_view(url='/dashboard/login/', permanent=False)),
+    path('admin/logout/', RedirectView.as_view(url='/dashboard/logout/', permanent=False)),
+    path('admin/', RedirectView.as_view(url='/dashboard/', permanent=False)),
 ]
 
 if settings.DEBUG:
