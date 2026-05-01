@@ -2,13 +2,169 @@
 {% block page_title %}Meals Management{% endblock %}
 
 {% block content %}
+<style>
+    .stats-summary {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .stat-badge {
+        background: white;
+        padding: 10px 20px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .stat-badge i {
+        font-size: 18px;
+        color: var(--primary);
+    }
+    .stat-badge span {
+        font-size: 13px;
+        color: var(--gray-dark);
+    }
+    .stat-badge strong {
+        color: var(--primary);
+        margin-left: 5px;
+    }
+    .search-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .search-bar input {
+        flex: 1;
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+    .search-bar input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+    }
+    .filter-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .data-table {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .data-table table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .data-table th {
+        background: var(--primary-light);
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--primary-dark);
+    }
+    .data-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #e0e0e0;
+        font-size: 13px;
+    }
+    .data-table tr:hover {
+        background: var(--gray-light);
+    }
+    .badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .badge-primary { background: var(--primary-light); color: var(--primary-dark); }
+    .badge-active { background: #d4edda; color: #155724; }
+    .badge-inactive { background: #e2e3e5; color: #383d41; }
+    .btn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        border: none;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: var(--gray-light); color: var(--gray-dark); }
+    .btn-secondary:hover { background: #e0e0e0; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-danger:hover { background: #c82333; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px;
+        background: white;
+        border-radius: 12px;
+    }
+    .empty-state i {
+        font-size: 48px;
+        color: var(--gray);
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+    .empty-state p {
+        color: var(--gray);
+    }
+    @media (max-width: 768px) {
+        .search-bar {
+            flex-direction: column;
+        }
+        .filter-buttons {
+            justify-content: center;
+        }
+        .data-table {
+            overflow-x: auto;
+        }
+        .data-table table {
+            min-width: 600px;
+        }
+    }
+</style>
+
+<div class="stats-summary">
+    <div class="stat-badge">
+        <i class="fas fa-utensils"></i>
+        <span>Total Meals: <strong id="total-meals">-</strong></span>
+    </div>
+    <div class="stat-badge">
+        <i class="fas fa-check-circle"></i>
+        <span>Active: <strong id="active-meals">-</strong></span>
+    </div>
+</div>
+
 <div class="search-bar">
-    <input type="text" id="search-input" placeholder="Search meals..." class="form-control">
-    <button class="btn btn-secondary" onclick="filterByType('')">All</button>
-    <button class="btn btn-secondary" onclick="filterByType('BREAKFAST')">Breakfast</button>
-    <button class="btn btn-secondary" onclick="filterByType('LUNCH')">Lunch</button>
-    <button class="btn btn-secondary" onclick="filterByType('DINNER')">Dinner</button>
-    <button class="btn btn-secondary" onclick="filterByType('SNACK')">Snack</button>
+    <input type="text" id="search-input" placeholder="Search meals by name..." class="form-control">
+    <div class="filter-buttons">
+        <button class="btn btn-secondary filter-btn" data-type="">All</button>
+        <button class="btn btn-secondary filter-btn" data-type="BREAKFAST">Breakfast</button>
+        <button class="btn btn-secondary filter-btn" data-type="LUNCH">Lunch</button>
+        <button class="btn btn-secondary filter-btn" data-type="DINNER">Dinner</button>
+        <button class="btn btn-secondary filter-btn" data-type="SNACK">Snack</button>
+    </div>
     <a href="{% url 'admin_meal_create' %}" class="btn btn-primary">
         <i class="fas fa-plus"></i> Add Meal
     </a>
@@ -22,12 +178,14 @@
                 <th>Type</th>
                 <th>Calories</th>
                 <th>Protein</th>
+                <th>Carbs</th>
+                <th>Fats</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody id="meals-table-body">
-            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+            <tr><td colspan="8" style="text-align: center;">Loading...</td></tr>
         </tbody>
     </table>
 </div>
@@ -35,51 +193,96 @@
 <script>
     let currentFilter = '';
     let currentSearch = '';
+    let allMeals = [];
     
     async function loadMeals() {
         try {
-            // FIXED: Use /dashboard/api/ instead of /admin/api/
             let url = '/dashboard/api/meals/list/';
-            if (currentSearch) url += `?search=${currentSearch}`;
-            if (currentFilter) url += `${currentSearch ? '&' : '?'}type=${currentFilter}`;
+            let params = new URLSearchParams();
+            if (currentSearch) params.append('search', currentSearch);
+            if (currentFilter) params.append('type', currentFilter);
+            if (params.toString()) url += '?' + params.toString();
             
             const response = await fetch(url);
             const data = await response.json();
             
-            const tbody = document.getElementById('meals-table-body');
-            tbody.innerHTML = '';
-            
-            if (!data.meals || data.meals.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No meals found</td></tr>';
-                return;
-            }
-            
-            data.meals.forEach(meal => {
-                const row = tbody.insertRow();
-                row.innerHTML = `
-                    <td><a href="/dashboard/meals/${meal.id}/">${meal.name}</a></td>
-                    <td><span class="badge badge-primary">${meal.meal_type}</span></td>
-                    <td>${meal.calories || '-'}</td>
-                    <td>${meal.protein || '-'}g</td>
-                    <td>${meal.is_active ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-inactive">Inactive</span>'}</td>
-                    <td>
-                        <a href="/dashboard/meals/${meal.id}/edit/" class="btn btn-secondary" style="padding: 5px 10px;">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <button onclick="deleteMeal(${meal.id})" class="btn btn-danger" style="padding: 5px 10px;">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                `;
-            });
+            allMeals = data.meals || [];
+            updateStats();
+            displayMeals(allMeals);
         } catch (error) {
             console.error('Error loading meals:', error);
+            document.getElementById('meals-table-body').innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--danger);">Error loading meals</td></tr>';
         }
+    }
+    
+    function updateStats() {
+        const total = allMeals.length;
+        const active = allMeals.filter(m => m.is_active).length;
+        document.getElementById('total-meals').innerText = total;
+        document.getElementById('active-meals').innerText = active;
+    }
+    
+    function displayMeals(meals) {
+        const tbody = document.getElementById('meals-table-body');
+        tbody.innerHTML = '';
+        
+        if (!meals || meals.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No meals found</td></tr>';
+            return;
+        }
+        
+        meals.forEach(meal => {
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td><a href="/dashboard/meals/${meal.id}/" style="font-weight: 500; color: var(--primary-dark);">${escapeHtml(meal.name)}</a></td>
+                <td><span class="badge badge-primary">${escapeHtml(meal.meal_type)}</span></td>
+                <td>${meal.calories || '-'}</td>
+                <td>${meal.protein || '-'}g</td>
+                <td>${meal.carbs || '-'}g</td>
+                <td>${meal.fats || '-'}g</td>
+                <td>${meal.is_active ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-inactive">Inactive</span>'}</td>
+                <td class="action-buttons">
+                    <a href="/dashboard/meals/${meal.id}/edit/" class="btn btn-secondary btn-sm" title="Edit Meal">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <button class="btn btn-danger btn-sm delete-btn" data-id="${meal.id}" data-name="${escapeHtml(meal.name)}" title="Delete Meal">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+        });
+        
+        // Attach delete event listeners
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const mealId = this.getAttribute('data-id');
+                const mealName = this.getAttribute('data-name');
+                deleteMeal(mealId, mealName);
+            });
+        });
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     function filterByType(type) {
         currentFilter = type;
         loadMeals();
+        
+        // Update active filter button style
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            if (btn.getAttribute('data-type') === type) {
+                btn.style.background = 'var(--primary)';
+                btn.style.color = 'white';
+            } else {
+                btn.style.background = 'var(--gray-light)';
+                btn.style.color = 'var(--gray-dark)';
+            }
+        });
     }
     
     function searchMeals() {
@@ -87,20 +290,54 @@
         loadMeals();
     }
     
-    async function deleteMeal(mealId) {
-        if (confirm('Delete this meal?')) {
-            const response = await fetch(`/dashboard/api/meals/${mealId}/delete/`, {
-                method: 'DELETE',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') }
-            });
-            if (response.ok) loadMeals();
+    async function deleteMeal(mealId, mealName) {
+        if (confirm(`Delete "${mealName}"? This action cannot be undone.`)) {
+            try {
+                const response = await fetch(`/dashboard/api/meals/${mealId}/delete/`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                });
+                if (response.ok) {
+                    loadMeals();
+                } else {
+                    alert('Error deleting meal');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error deleting meal');
+            }
         }
     }
     
-    loadMeals();
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
     
-    document.getElementById('search-input').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') searchMeals();
+    // Initialize filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterByType(this.getAttribute('data-type'));
+        });
     });
+    
+    // Search input event
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchMeals();
+        }
+    });
+    
+    loadMeals();
 </script>
 {% endblock %}

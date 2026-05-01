@@ -43,6 +43,50 @@ def admin_dashboard(request):
     context = {'active_page': 'dashboard'}
     return render(request, 'admin/dashboard.html', context)
 
+@staff_member_required
+def api_dashboard_stats(request):
+    """Get dashboard statistics"""
+    from apps.workouts.models import Workout, TemplateWorkout
+    from apps.meals.models import MealItem, DailyMealLog
+    from apps.social.models import Challenge
+    from django.db.models import Count, Q
+    
+    # User stats
+    total_users = User.objects.count()
+    active_users = User.objects.filter(is_active=True).count()
+    premium_users = User.objects.filter(subscription_tier='PREMIUM').count()
+    
+    # Workout stats
+    total_workouts = Workout.objects.count()
+    completed_workouts = Workout.objects.filter(is_completed=True).count()
+    completion_rate = round((completed_workouts / total_workouts) * 100, 1) if total_workouts > 0 else 0
+    
+    # Template stats
+    total_templates = TemplateWorkout.objects.count()
+    active_templates = TemplateWorkout.objects.filter(is_active=True).count()
+    
+    # Meal stats
+    total_meals = MealItem.objects.count()
+    active_meals = MealItem.objects.filter(is_active=True).count()
+    meals_logged = DailyMealLog.objects.filter(is_completed=True).count()
+    
+    # Challenge stats
+    active_challenges = Challenge.objects.filter(is_active=True).count()
+    
+    return JsonResponse({
+        'total_users': total_users,
+        'active_users': active_users,
+        'premium_users': premium_users,
+        'total_workouts': total_workouts,
+        'completed_workouts': completed_workouts,
+        'completion_rate': completion_rate,
+        'total_templates': total_templates,
+        'active_templates': active_templates,
+        'total_meals': total_meals,
+        'active_meals': active_meals,
+        'meals_logged': meals_logged,
+        'active_challenges': active_challenges,
+    })
 # ==================== USER MANAGEMENT ====================
 
 @staff_member_required
@@ -55,8 +99,34 @@ def admin_users(request):
 @staff_member_required
 def admin_user_detail(request, user_id):
     """View user details"""
+    from apps.workouts.models import Workout
+    from apps.meals.models import DailyMealLog
+    from django.db.models import Sum
+    
     user = get_object_or_404(User, id=user_id)
-    context = {'active_page': 'users', 'user_data': user}
+    
+    # Get workout stats
+    workouts = Workout.objects.filter(user=user)
+    workout_count = workouts.filter(is_completed=True).count()
+    total_minutes = workouts.filter(is_completed=True).aggregate(Sum('duration'))['duration__sum'] or 0
+    
+    # Get meal stats
+    meals = DailyMealLog.objects.filter(user=user)
+    meal_count = meals.filter(is_completed=True).count()
+    
+    # Get recent items
+    recent_workouts = workouts.order_by('-date')[:5]
+    recent_meals = meals.order_by('-date')[:5]
+    
+    context = {
+        'active_page': 'users',
+        'user_data': user,
+        'workout_count': workout_count,
+        'total_minutes': total_minutes,
+        'meal_count': meal_count,
+        'recent_workouts': recent_workouts,
+        'recent_meals': recent_meals,
+    }
     return render(request, 'admin/user_detail.html', context)
 
 @staff_member_required
@@ -74,7 +144,57 @@ def admin_user_edit(request, user_id):
     
     context = {'active_page': 'users', 'user_data': user}
     return render(request, 'admin/user_edit.html', context)
-
+@staff_member_required
+def api_users_list(request):
+    """Get list of users with pagination"""
+    from django.core.paginator import Paginator
+    from apps.workouts.models import Workout
+    
+    search = request.GET.get('search', '')
+    page = int(request.GET.get('page', 1))
+    per_page = int(request.GET.get('per_page', 20))
+    
+    users = User.objects.all().order_by('-date_joined')
+    
+    if search:
+        users = users.filter(
+            Q(username__icontains=search) | Q(email__icontains=search)
+        )
+    
+    # Get counts for stats
+    total_users = User.objects.count()
+    active_users = User.objects.filter(is_active=True).count()
+    premium_users = User.objects.filter(subscription_tier='PREMIUM').count()
+    
+    # Paginate
+    paginator = Paginator(users, per_page)
+    page_obj = paginator.get_page(page)
+    
+    data = []
+    for user in page_obj:
+        # Get user's workout count
+        workout_count = Workout.objects.filter(user=user, is_completed=True).count()
+        
+        data.append({
+            'id': str(user.id),
+            'username': user.username,
+            'email': user.email,
+            'subscription_tier': user.subscription_tier,
+            'streak_days': user.streak_days,
+            'date_joined': user.date_joined.strftime('%Y-%m-%d'),
+            'is_active': user.is_active,
+            'workout_count': workout_count,
+        })
+    
+    return JsonResponse({
+        'users': data,
+        'total_users': total_users,
+        'active_users': active_users,
+        'premium_users': premium_users,
+        'total': paginator.count,
+        'page': page,
+        'total_pages': paginator.num_pages,
+    })
 # ==================== USER WORKOUTS (what users have done) ====================
 
 @staff_member_required
@@ -91,6 +211,94 @@ def admin_workout_library(request):
     context = {'active_page': 'workout_library'}
     return render(request, 'admin/workout_library.html', context)
 
+@staff_member_required
+def admin_workout_library_create(request):
+    """Create new workout template"""
+    from apps.workouts.models import TemplateWorkout
+    import json
+    
+    if request.method == 'POST':
+        try:
+            # Get form data
+            name = request.POST.get('name')
+            duration = request.POST.get('duration', 30)
+            goal = request.POST.get('goal', 'FITNESS')
+            experience_level = request.POST.get('experience_level', 'BEGINNER')
+            training_location = request.POST.get('training_location', 'HOME')
+            description = request.POST.get('description', '')
+            exercises_json = request.POST.get('exercises_json', '[]')
+            is_active = request.POST.get('is_active') == 'on'
+            
+            # Parse exercises
+            exercises = json.loads(exercises_json)
+            
+            # Create template
+            template = TemplateWorkout.objects.create(
+                name=name,
+                default_duration=duration,
+                goal=goal,
+                experience_level=experience_level,
+                training_location=training_location,
+                description=description,
+                exercises=exercises,
+                is_active=is_active
+            )
+            
+            # Handle image upload
+            if request.FILES.get('image'):
+                template.image = request.FILES['image']
+                template.save()
+            
+            messages.success(request, f'Workout "{template.name}" created successfully!')
+            return redirect('admin_workout_library')
+            
+        except Exception as e:
+            messages.error(request, f'Error creating workout: {str(e)}')
+            return redirect('admin_workout_library_create')
+    
+    context = {
+        'active_page': 'workout_library',
+    }
+    return render(request, 'admin/workout_library_create.html', context)
+
+@staff_member_required
+def admin_workout_library_edit(request, workout_id):
+    """Edit workout in library"""
+    from apps.workouts.models import TemplateWorkout
+    import json
+    
+    template = get_object_or_404(TemplateWorkout, id=workout_id)
+    
+    if request.method == 'POST':
+        try:
+            template.name = request.POST.get('name')
+            template.default_duration = request.POST.get('duration', 30)
+            template.goal = request.POST.get('goal', 'FITNESS')
+            template.experience_level = request.POST.get('experience_level', 'BEGINNER')
+            template.training_location = request.POST.get('training_location', 'HOME')
+            template.description = request.POST.get('description', '')
+            template.exercises = json.loads(request.POST.get('exercises_json', '[]'))
+            template.is_active = request.POST.get('is_active') == 'on'
+            
+            # Handle image upload
+            if request.FILES.get('image'):
+                template.image = request.FILES['image']
+            
+            template.save()
+            
+            messages.success(request, f'Workout "{template.name}" updated successfully!')
+            return redirect('admin_workout_library')
+            
+        except Exception as e:
+            messages.error(request, f'Error updating workout: {str(e)}')
+            return redirect('admin_workout_library_edit', workout_id=workout_id)
+    
+    context = {
+        'active_page': 'workout_library',
+        'workout': template,
+    }
+    return render(request, 'admin/workout_library_edit.html', context)
+
 # ==================== MEAL MANAGEMENT ====================
 
 @staff_member_required
@@ -100,10 +308,14 @@ def admin_meals(request):
     context = {'active_page': 'meals', 'meals': meals}
     return render(request, 'admin/meals.html', context)
 
+# Update these functions to use str instead of int
+
 @staff_member_required
 def admin_meal_detail(request, meal_id):
     """View meal details"""
-    meal = get_object_or_404(MealItem, id=meal_id)
+    from apps.workouts.models import TemplateWorkout
+    
+    meal = get_object_or_404(MealItem, id=meal_id)  # UUID string works directly
     context = {'active_page': 'meals', 'meal': meal}
     return render(request, 'admin/meal_detail.html', context)
 
@@ -128,6 +340,18 @@ def admin_meal_edit(request, meal_id):
     
     context = {'active_page': 'meals', 'meal': meal}
     return render(request, 'admin/meal_edit.html', context)
+
+@staff_member_required
+def api_meal_delete(request, meal_id):
+    """Delete a meal"""
+    from apps.meals.models import MealItem
+    
+    try:
+        meal = MealItem.objects.get(id=meal_id)
+        meal.delete()
+        return JsonResponse({'success': True})
+    except MealItem.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Meal not found'})
 
 @staff_member_required
 def admin_meal_create(request):
@@ -293,202 +517,35 @@ def api_user_workout_delete(request, workout_id):
     except Workout.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Workout not found'})
 
-# Workout Library API
-@staff_member_required
+# Workout Library API - FIXED with proper image URL handling
 @staff_member_required
 def api_workout_library_list(request):
-    """Get workout library (templates)"""
-    from apps.workouts.models import TemplateWorkout, Workout
+    """Get workout library with correct Cloudinary URLs"""
+    from apps.workouts.models import TemplateWorkout
     
     templates = TemplateWorkout.objects.all().order_by('-id')
     
     data = []
     for template in templates:
-        usage_count = Workout.objects.filter(template_id=template.id).count()
+        template_data = {
+            'id': str(template.id),
+            'name': template.name,
+            'duration': template.default_duration,
+            'description': getattr(template, 'description', ''),
+            'exercises': template.exercises,
+            'is_active': template.is_active,
+        }
         
-        data.append({
-            'id': template.id,
-            'name': template.name,
-            'duration': template.default_duration,
-            'difficulty': getattr(template, 'difficulty_level', 'medium'),
-            'category': getattr(template, 'category', 'full_body'),
-            'description': getattr(template, 'description', ''),
-            'exercises': template.exercises,
-            'is_active': template.is_active,
-            'usage_count': usage_count,
-        })
+        # Use image.url - Django's storage system will build the correct Cloudinary URL
+        if template.image:
+            template_data['image_url'] = template.image.url
+        
+        data.append(template_data)
     
     return JsonResponse({
         'templates': data,
         'total': len(data),
     })
-
-@staff_member_required
-def admin_workout_library_create(request):
-    """Create new workout template"""
-    from apps.workouts.models import TemplateWorkout
-    import json
-    
-    if request.method == 'POST':
-        try:
-            # Get form data
-            name = request.POST.get('name')
-            duration = request.POST.get('duration', 30)
-            goal = request.POST.get('goal', 'FITNESS')
-            experience_level = request.POST.get('experience_level', 'BEGINNER')
-            training_location = request.POST.get('training_location', 'HOME')
-            description = request.POST.get('description', '')
-            exercises_json = request.POST.get('exercises_json', '[]')
-            is_active = request.POST.get('is_active') == 'on'
-            
-            # Parse exercises
-            exercises = json.loads(exercises_json)
-            
-            # Create template
-            template = TemplateWorkout.objects.create(
-                name=name,
-                default_duration=duration,
-                goal=goal,
-                experience_level=experience_level,
-                training_location=training_location,
-                description=description,
-                exercises=exercises,
-                is_active=is_active
-            )
-            
-            # Handle image upload
-            if request.FILES.get('image'):
-                template.image = request.FILES['image']
-                template.save()
-            
-            from django.contrib import messages
-            messages.success(request, f'Workout "{template.name}" created successfully!')
-            return redirect('admin_workout_library')
-            
-        except Exception as e:
-            from django.contrib import messages
-            messages.error(request, f'Error creating workout: {str(e)}')
-            return redirect('admin_workout_library_create')
-    
-    context = {
-        'active_page': 'workout_library',
-    }
-    return render(request, 'admin/workout_library_create.html', context)
-@staff_member_required
-def api_workout_library_list(request):
-    """Get workout library (templates)"""
-    from apps.workouts.models import TemplateWorkout
-    
-    templates = TemplateWorkout.objects.all().order_by('-id')
-    
-    data = []
-    for template in templates:
-        data.append({
-            'id': template.id,
-            'name': template.name,
-            'duration': template.default_duration,
-            'description': getattr(template, 'description', ''),
-            'goal': getattr(template, 'goal', 'FITNESS'),
-            'experience_level': getattr(template, 'experience_level', 'BEGINNER'),
-            'training_location': getattr(template, 'training_location', 'HOME'),
-            'exercises': template.exercises,
-            'is_active': template.is_active,
-            'image_url': template.image.url if template.image else None,
-        })
-    
-    return JsonResponse({
-        'templates': data,
-        'total': len(data),
-    })
-
-@staff_member_required
-def api_workout_library_create(request):
-    """Create a new workout in library with image support"""
-    from apps.workouts.models import TemplateWorkout
-    
-    if request.method == 'POST':
-        try:
-            # Handle form data with image
-            name = request.POST.get('name')
-            default_duration = request.POST.get('duration', 30)
-            goal = request.POST.get('goal', 'FITNESS')
-            experience_level = request.POST.get('experience_level', 'BEGINNER')
-            training_location = request.POST.get('training_location', 'HOME')
-            description = request.POST.get('description', '')
-            exercises_json = request.POST.get('exercises_json', '[]')
-            is_active = request.POST.get('is_active') == 'on'
-            
-            # Parse exercises
-            import json
-            exercises = json.loads(exercises_json)
-            
-            # Create template
-            template = TemplateWorkout.objects.create(
-                name=name,
-                default_duration=default_duration,
-                goal=goal,
-                experience_level=experience_level,
-                training_location=training_location,
-                description=description,
-                exercises=exercises,
-                is_active=is_active
-            )
-            
-            # Handle image upload
-            if request.FILES.get('image'):
-                template.image = request.FILES['image']
-                template.save()
-            
-            return JsonResponse({
-                'success': True,
-                'id': template.id,
-                'name': template.name,
-                'message': 'Workout created successfully!'
-            })
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
-    
-    return JsonResponse({'error': 'Invalid method'}, status=400)
-
-@staff_member_required
-def admin_workout_library_edit(request, workout_id):
-    """Edit workout in library"""
-    from apps.workouts.models import TemplateWorkout
-    import json
-    from django.contrib import messages
-    
-    # Use get_object_or_404 with UUID string
-    template = get_object_or_404(TemplateWorkout, id=workout_id)
-    
-    if request.method == 'POST':
-        try:
-            template.name = request.POST.get('name')
-            template.default_duration = request.POST.get('duration', 30)
-            template.goal = request.POST.get('goal', 'FITNESS')
-            template.experience_level = request.POST.get('experience_level', 'BEGINNER')
-            template.training_location = request.POST.get('training_location', 'HOME')
-            template.description = request.POST.get('description', '')
-            template.exercises = json.loads(request.POST.get('exercises_json', '[]'))
-            template.is_active = request.POST.get('is_active') == 'on'
-            
-            # Handle image upload
-            if request.FILES.get('image'):
-                template.image = request.FILES['image']
-            
-            template.save()
-            
-            messages.success(request, f'Workout "{template.name}" updated successfully!')
-            return redirect('admin_workout_library')
-            
-        except Exception as e:
-            messages.error(request, f'Error updating workout: {str(e)}')
-            return redirect('admin_workout_library_edit', workout_id=workout_id)
-    
-    context = {
-        'active_page': 'workout_library',
-        'workout': template,
-    }
-    return render(request, 'admin/workout_library_edit.html', context)
 
 @staff_member_required
 def api_workout_library_delete(request, workout_id):
@@ -501,6 +558,7 @@ def api_workout_library_delete(request, workout_id):
         return JsonResponse({'success': True, 'message': 'Workout deleted successfully!'})
     except TemplateWorkout.DoesNotExist:
         return JsonResponse({'error': 'Workout not found'}, status=404)
+
 # Meals API
 @staff_member_required
 def api_meals_list(request):
@@ -576,3 +634,154 @@ def api_analytics_data(request):
 def upload_image(request):
     """Handle image uploads"""
     return JsonResponse({'location': ''})
+
+
+#############SETTTINGS##################
+@staff_member_required
+def admin_change_password(request):
+    """Change admin's own password"""
+    from django.contrib.auth import update_session_auth_hash
+    from django.contrib import messages
+    
+    if request.method == 'POST':
+        current_password = request.POST.get('current_password')
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        if not request.user.check_password(current_password):
+            messages.error(request, 'Current password is incorrect')
+        elif new_password != confirm_password:
+            messages.error(request, 'New passwords do not match')
+        elif len(new_password) < 8:
+            messages.error(request, 'Password must be at least 8 characters')
+        else:
+            request.user.set_password(new_password)
+            request.user.save()
+            update_session_auth_hash(request, request.user)
+            messages.success(request, 'Password changed successfully!')
+        
+        return redirect('admin_settings')
+    
+    return redirect('admin_settings')
+
+@staff_member_required
+def api_reset_user_password(request):
+    """Send password reset link to a user"""
+    import json
+    from django.core.mail import send_mail
+    
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        email = data.get('email')
+        
+        try:
+            user = User.objects.get(email=email)
+            # Generate reset token
+            from django.contrib.auth.tokens import default_token_generator
+            from django.utils.http import urlsafe_base64_encode
+            from django.utils.encoding import force_bytes
+            
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            
+            reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+            
+            send_mail(
+                'Password Reset Request',
+                f'Click the link to reset your password: {reset_link}',
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
+            return JsonResponse({'success': True})
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+    
+    return JsonResponse({'error': 'Invalid method'}, status=400)
+
+@staff_member_required
+def api_create_admin(request):
+    """Create a new admin account"""
+    import json
+    from django.core.mail import send_mail
+    
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        email = data.get('email')
+        
+        if not email:
+            return JsonResponse({'error': 'Email is required'}, status=400)
+        
+        # Generate random password
+        import secrets
+        import string
+        
+        alphabet = string.ascii_letters + string.digits
+        password = ''.join(secrets.choice(alphabet) for i in range(12))
+        
+        try:
+            user = User.objects.create_user(
+                username=email.split('@')[0],
+                email=email,
+                password=password,
+                is_staff=True,
+                is_active=True
+            )
+            
+            # Send email with credentials
+            send_mail(
+                'Admin Account Created',
+                f'Your admin account has been created.\n\nEmail: {email}\nPassword: {password}\n\nPlease change your password after logging in.',
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    
+    return JsonResponse({'error': 'Invalid method'}, status=400)
+
+@staff_member_required
+def api_clear_cache(request):
+    """Clear Django cache"""
+    from django.core.cache import cache
+    cache.clear()
+    return JsonResponse({'success': True})
+
+@staff_member_required
+def api_clear_logs(request):
+    """Clear log files"""
+    import os
+    import glob
+    
+    log_dir = BASE_DIR / 'logs'
+    log_files = glob.glob(str(log_dir / '*.log'))
+    
+    for log_file in log_files:
+        with open(log_file, 'w') as f:
+            f.write('')
+    
+    return JsonResponse({'success': True})
+
+@staff_member_required
+def api_backup_database(request):
+    """Backup database to JSON"""
+    import json
+    from django.core import serializers
+    from django.http import HttpResponse
+    
+    # Backup all models
+    backup_data = {}
+    
+    # Add users
+    users = User.objects.all()
+    backup_data['users'] = json.loads(serializers.serialize('json', users))
+    
+    # Add workouts (you can add more models as needed)
+    # workouts = Workout.objects.all()
+    # backup_data['workouts'] = json.loads(serializers.serialize('json', workouts))
+    
+    response = HttpResponse(json.dumps(backup_data, indent=2), content_type='application/json')
+    response['Content-Disposition'] = 'attachment; filename="riadha_backup.json"'
+    return response

@@ -1,82 +1,174 @@
-{% extends 'admin/base.html' %}
-{% block title %}Login{% endblock %}
-
-{% block content %}
-<style>
-    .login-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 80vh;
-    }
-    
-    .login-box {
-        background: var(--white);
-        padding: 40px;
-        border-radius: 20px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-        width: 100%;
-        max-width: 400px;
-    }
-    
-    .login-logo {
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    
-    .login-logo i {
-        font-size: 60px;
-        color: var(--primary);
-    }
-    
-    .login-logo h2 {
-        margin-top: 10px;
-        color: var(--gray-dark);
-    }
-    
-    .login-btn {
-        width: 100%;
-        padding: 12px;
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-    }
-    
-    .login-btn:hover {
-        background: var(--primary-dark);
-    }
-</style>
-
-<div class="login-container">
-    <div class="login-box">
-        <div class="login-logo">
-            <i class="fas fa-dumbbell"></i>
-            <h2>Admin Login</h2>
-            <p style="color: var(--gray);">Enter your credentials to access the dashboard</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riadha Admin - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            width: 100%;
+            padding: 20px;
+        }
+        
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .login-logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .login-logo img {
+            max-width: 80px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+        
+        .login-logo h2 {
+            margin-top: 10px;
+            color: #343a40;
+            font-size: 24px;
+        }
+        
+        .login-logo p {
+            color: #6c757d;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #343a40;
+            font-size: 14px;
+        }
+        
+        .form-group label i {
+            margin-right: 8px;
+            color: #4a90e2;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .login-btn:hover {
+            background: #2c6bb0;
+            transform: translateY(-1px);
+        }
+        
+        .alert {
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .login-box {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-logo">
+                <img src="https://res.cloudinary.com/dbcbjy8yc/image/upload/v1777669072/riadha_icon_q4ti9g.png" 
+                     alt="Riadha Logo"
+                     onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <i class="fas fa-dumbbell" style="display: none; font-size: 60px; color: #4a90e2;"></i>
+                <h2>Admin Login</h2>
+                <p>Enter your credentials to access the dashboard</p>
+            </div>
+            
+            {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+            
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Username</label>
+                    <input type="text" name="username" class="form-control" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" name="password" class="form-control" required>
+                </div>
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+            </form>
         </div>
-        
-        {% if error %}
-            <div class="alert alert-danger">{{ error }}</div>
-        {% endif %}
-        
-        <form method="POST">
-            {% csrf_token %}
-            <div class="form-group">
-                <label><i class="fas fa-user"></i> Username</label>
-                <input type="text" name="username" class="form-control" required autofocus>
-            </div>
-            <div class="form-group">
-                <label><i class="fas fa-lock"></i> Password</label>
-                <input type="password" name="password" class="form-control" required>
-            </div>
-            <button type="submit" class="login-btn">
-                <i class="fas fa-sign-in-alt"></i> Login
-            </button>
-        </form>
     </div>
-</div>
-{% endblock %}
+</body>
+</html>

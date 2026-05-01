@@ -2,39 +2,312 @@
 {% block page_title %}User Details: {{ user_data.username }}{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-    <div style="background: var(--white); padding: 25px; border-radius: 15px;">
-        <h3>Profile Information</h3>
-        <table style="width: 100%; margin-top: 15px;">
-            <tr><td><strong>Username:</strong></td><td>{{ user_data.username }}</td></tr>
-            <tr><td><strong>Email:</strong></td><td>{{ user_data.email }}</td></tr>
-            <tr><td><strong>Joined:</strong></td><td>{{ user_data.date_joined|date:"Y-m-d H:i" }}</td></tr>
-            <tr><td><strong>Last Login:</strong></td><td>{{ user_data.last_login|date:"Y-m-d H:i"|default:"Never" }}</td></tr>
-            <tr><td><strong>Subscription:</strong></td><td><span class="badge badge-active">{{ user_data.subscription_tier }}</span></td></tr>
-            <tr><td><strong>Streak Days:</strong></td><td>🔥 {{ user_data.streak_days }}</td></tr>
-        </table>
+<style>
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 12px;
+    }
+    .stat-label {
+        font-weight: 500;
+        color: var(--gray-dark);
+        font-size: 12px;
+    }
+    .stat-value {
+        color: var(--gray);
+        font-size: 12px;
+    }
+    .section-title {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+        border-bottom: 2px solid var(--primary-light);
+        color: var(--primary-dark);
+    }
+    .activity-card {
+        background: var(--white);
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+    }
+    .activity-list {
+        max-height: 250px;
+        overflow-y: auto;
+    }
+    .activity-item {
+        padding: 6px 0;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+    }
+    .activity-date {
+        font-size: 10px;
+        color: var(--gray);
+    }
+    .badge-completed {
+        background: #d4edda;
+        color: #155724;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+    .badge-pending {
+        background: #fff3cd;
+        color: #856404;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .info-card {
+        background: var(--white);
+        padding: 15px;
+        border-radius: 10px;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .summary-card {
+        padding: 10px;
+        border-radius: 8px;
+        background: var(--white);
+        text-align: center;
+    }
+    .summary-title {
+        font-size: 10px;
+        color: var(--gray);
+        margin-bottom: 4px;
+    }
+    .summary-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--gray-dark);
+    }
+    .action-buttons {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+    }
+    .btn {
+        padding: 5px 12px;
+        font-size: 12px;
+    }
+    h3 {
+        font-size: 14px;
+    }
+    .badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+</style>
+
+<div class="info-grid">
+    <!-- Profile Information -->
+    <div class="info-card">
+        <h3 class="section-title">Profile Information</h3>
+        <div class="stat-row">
+            <span class="stat-label">Username:</span>
+            <span class="stat-value">{{ user_data.username }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Email:</span>
+            <span class="stat-value">{{ user_data.email }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Joined:</span>
+            <span class="stat-value">{{ user_data.date_joined|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Last Login:</span>
+            <span class="stat-value">{{ user_data.last_login|date:"Y-m-d H:i"|default:"Never" }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Subscription:</span>
+            <span class="stat-value">
+                <span class="badge badge-{{ user_data.subscription_tier|lower }}">{{ user_data.subscription_tier }}</span>
+            </span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Status:</span>
+            <span class="stat-value">
+                {% if user_data.is_active %}
+                    <span class="badge badge-active">Active</span>
+                {% else %}
+                    <span class="badge badge-inactive">Inactive</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Staff Access:</span>
+            <span class="stat-value">
+                {% if user_data.is_staff %}
+                    <span class="badge badge-active">Yes</span>
+                {% else %}
+                    <span class="badge badge-inactive">No</span>
+                {% endif %}
+            </span>
+        </div>
     </div>
     
-    <div style="background: var(--white); padding: 25px; border-radius: 15px;">
-        <h3>Fitness Stats</h3>
-        <table style="width: 100%; margin-top: 15px;">
-            <tr><td><strong>Height:</strong></td><td>{{ user_data.height|default:"Not set" }} cm</td></tr>
-            <tr><td><strong>Weight:</strong></td><td>{{ user_data.weight|default:"Not set" }} kg</td></tr>
-            <tr><td><strong>Goal:</strong></td><td>{{ user_data.get_goal_display|default:"Not set" }}</td></tr>
-            <tr><td><strong>Experience:</strong></td><td>{{ user_data.get_experience_level_display|default:"Not set" }}</td></tr>
-            <tr><td><strong>Workouts:</strong></td><td>{{ workout_count }}</td></tr>
-            <tr><td><strong>Total Minutes:</strong></td><td>{{ total_minutes }} min</td></tr>
-            <tr><td><strong>Meals Logged:</strong></td><td>{{ meal_count }}</td></tr>
-        </table>
+    <!-- Fitness Statistics -->
+    <div class="info-card">
+        <h3 class="section-title">Fitness Statistics</h3>
+        <div class="stat-row">
+            <span class="stat-label">Height:</span>
+            <span class="stat-value">{{ user_data.height|default:"Not set" }} cm</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Weight:</span>
+            <span class="stat-value">{{ user_data.weight|default:"Not set" }} kg</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">BMI:</span>
+            <span class="stat-value">
+                {% if user_data.height and user_data.weight %}
+                    {{ user_data.weight|floatformat:1 }} / ({{ user_data.height|floatformat:2 }}m)²
+                {% else %}
+                    Not available
+                {% endif %}
+            </span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Fitness Goal:</span>
+            <span class="stat-value">{{ user_data.get_goal_display|default:"Not set" }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Experience Level:</span>
+            <span class="stat-value">{{ user_data.get_experience_level_display|default:"Not set" }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Training Location:</span>
+            <span class="stat-value">{{ user_data.get_training_location_display|default:"Not set" }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Days per Week:</span>
+            <span class="stat-value">{{ user_data.days_per_week|default:"Not set" }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Time Available:</span>
+            <span class="stat-value">{{ user_data.time_available|default:"Not set" }} min</span>
+        </div>
     </div>
 </div>
 
-<div style="margin-top: 20px; display: flex; gap: 10px;">
-    <a href="/admin-panel/users/{{ user_data.id }}/edit/" class="btn btn-primary">
+<!-- Workout Summary -->
+<div class="activity-card">
+    <h3 class="section-title">Workout Summary</h3>
+    <div class="summary-grid">
+        <div class="summary-card" style="border-left: 3px solid var(--primary);">
+            <div class="summary-title">Total Workouts</div>
+            <div class="summary-value">{{ workout_count }}</div>
+        </div>
+        <div class="summary-card" style="border-left: 3px solid var(--secondary);">
+            <div class="summary-title">Total Minutes</div>
+            <div class="summary-value">{{ total_minutes }}</div>
+        </div>
+        <div class="summary-card" style="border-left: 3px solid var(--success);">
+            <div class="summary-title">Streak Days</div>
+            <div class="summary-value">{{ user_data.streak_days }}</div>
+        </div>
+        <div class="summary-card" style="border-left: 3px solid var(--warning);">
+            <div class="summary-title">Meals Logged</div>
+            <div class="summary-value">{{ meal_count }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Workouts -->
+{% if recent_workouts %}
+<div class="activity-card">
+    <h3 class="section-title">Recent Workouts</h3>
+    <div class="activity-list">
+        {% for workout in recent_workouts %}
+        <div class="activity-item">
+            <div>
+                <div style="font-weight: 500; font-size: 12px;">{{ workout.date|date:"Y-m-d" }}</div>
+                <div style="font-size: 10px; color: var(--gray);">{{ workout.duration }} min • {{ workout.exercises|length }} exercises</div>
+            </div>
+            <div>
+                {% if workout.is_completed %}
+                    <span class="badge badge-completed">Completed</span>
+                {% else %}
+                    <span class="badge badge-pending">Pending</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Meals -->
+{% if recent_meals %}
+<div class="activity-card">
+    <h3 class="section-title">Recent Meals</h3>
+    <div class="activity-list">
+        {% for meal in recent_meals %}
+        <div class="activity-item">
+            <div>
+                <div style="font-weight: 500; font-size: 12px;">{{ meal.date|date:"Y-m-d" }} - {{ meal.get_meal_type_display }}</div>
+                <div style="font-size: 10px; color: var(--gray);">
+                    {% if meal.meal_item %}
+                        {{ meal.meal_item.name }}
+                    {% elif meal.custom_meal_name %}
+                        {{ meal.custom_meal_name }}
+                    {% else %}
+                        Meal logged
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                {% if meal.is_completed %}
+                    <span class="badge badge-completed">Logged</span>
+                {% else %}
+                    <span class="badge badge-pending">Pending</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="action-buttons">
+    <a href="/dashboard/users/{{ user_data.id }}/edit/" class="btn btn-primary">
         <i class="fas fa-edit"></i> Edit User
     </a>
-    <a href="/admin-panel/users/" class="btn btn-secondary">
+    <a href="/dashboard/users/" class="btn btn-secondary">
         <i class="fas fa-arrow-left"></i> Back to Users
     </a>
 </div>
+
+<script>
+    // Add styles for badges if not present
+    if (!document.querySelector('#badge-styles')) {
+        const style = document.createElement('style');
+        style.id = 'badge-styles';
+        style.textContent = `
+            .badge-free { background: #e2e3e5; color: #383d41; font-size: 10px; padding: 2px 6px; border-radius: 10px; }
+            .badge-premium { background: #ffc107; color: #856404; font-size: 10px; padding: 2px 6px; border-radius: 10px; }
+            .badge-pro { background: #17a2b8; color: #0c5460; font-size: 10px; padding: 2px 6px; border-radius: 10px; }
+            .badge-active { background: #d4edda; color: #155724; font-size: 10px; padding: 2px 6px; border-radius: 10px; }
+            .badge-inactive { background: #f8d7da; color: #721c24; font-size: 10px; padding: 2px 6px; border-radius: 10px; }
+        `;
+        document.head.appendChild(style);
+    }
+</script>
 {% endblock %}

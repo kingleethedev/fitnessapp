@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from datetime import timedelta
 import logging.config
 
-# Load environment variables
+# Load environment variables FIRST
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -50,7 +50,9 @@ INSTALLED_APPS = [
     'drf_yasg',
     'django_celery_beat',
     'stripe',
-    'django_cleanup.apps.CleanupConfig',  # Auto cleanup old files
+    'django_cleanup.apps.CleanupConfig',
+    'cloudinary',  # Add Cloudinary
+    'cloudinary_storage',  # Add Cloudinary storage
     
     # Local apps
     'apps.accounts',
@@ -63,7 +65,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # This MUST be as high as possible
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -95,13 +97,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'fitness_backend.wsgi.application'
 ASGI_APPLICATION = 'fitness_backend.asgi.application'
 
-# # Database
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
+# Database
 import dj_database_url
 
 DATABASES = {
@@ -111,26 +107,14 @@ DATABASES = {
         ssl_require=True
     )
 }
-# Cache (optional - comment out if Redis not available)
+
+# Cache
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',  # Use local memory instead of Redis
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'unique-snowflake',
     }
 }
-
-# Redis for session storage (optional - disable if Redis not available)
-# SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-# SESSION_CACHE_ALIAS = 'default'
-
-# Celery Configuration (optional - disable if not using)
-# CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
-# CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379')
-# CELERY_ACCEPT_CONTENT = ['application/json']
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_SERIALIZER = 'json'
-# CELERY_TIMEZONE = 'UTC'
-# CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 # Tell Django to use your custom User model
 AUTH_USER_MODEL = 'accounts.User'
@@ -141,7 +125,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.AllowAny',  # Changed to AllowAny for development
+        'rest_framework.permissions.AllowAny',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
@@ -174,20 +158,19 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-# CORS Settings - Updated for ngrok
+# CORS Settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8080",
     "http://localhost:8000",
     "https://*.ngrok-free.dev",
     "https://hardly-urgency-length.ngrok-free.dev",
+    "https://riadha.app",
 ]
 
-# Allow all origins for development (temporary)
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# Add CORS headers for all requests
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
@@ -209,34 +192,55 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# CSRF settings for ngrok
+# CSRF settings
 CSRF_TRUSTED_ORIGINS = [
     'https://*.ngrok-free.dev',
     'https://hardly-urgency-length.ngrok-free.dev',
     'http://localhost:8000',
+    'https://riadha.app',
 ]
 
-# Stripe (optional - add your keys if using)
+# ========== CLOUDINARY CONFIGURATION ==========
+# Import Cloudinary after loading env vars
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+# Get Cloudinary config from environment variables
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME', ''),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY', ''),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET', ''),
+}
+
+# Configure Cloudinary (only if credentials exist)
+if CLOUDINARY_STORAGE['CLOUD_NAME']:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_STORAGE['CLOUD_NAME'],
+        api_key=CLOUDINARY_STORAGE['API_KEY'],
+        api_secret=CLOUDINARY_STORAGE['API_SECRET'],
+    )
+    # Use Cloudinary for media storage
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    MEDIA_URL = '/media/'
+else:
+    # Fall back to local media storage
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
+
+# Stripe Configuration
 STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY', '')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '')
 
-# Static and Media files
+# Static files
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-# Email Configuration (optional for development)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Use console for development
-# EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-# EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-# EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-# EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-# EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@fitnessapp.com')
 
 # Frontend URL
@@ -304,7 +308,7 @@ LOGGING = {
 
 # Security Settings (Production)
 if not DEBUG:
-    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_SSL_REDIRECT = True

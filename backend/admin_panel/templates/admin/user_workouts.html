@@ -12,15 +12,36 @@
     .stat-card {
         background: white;
         padding: 20px;
-        border-radius: 15px;
+        border-radius: 12px;
         border-left: 4px solid var(--primary);
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    .stat-title { color: var(--gray); font-size: 13px; margin-bottom: 8px; }
-    .stat-value { font-size: 28px; font-weight: 700; }
-    .date-group { margin-bottom: 30px; }
+    .stat-card.primary {
+        border-left-color: var(--primary);
+    }
+    .stat-card.secondary {
+        border-left-color: var(--secondary);
+    }
+    .stat-card.success {
+        border-left-color: var(--success);
+    }
+    .stat-card.warning {
+        border-left-color: var(--warning);
+    }
+    .stat-title { 
+        color: var(--gray); 
+        font-size: 13px; 
+        margin-bottom: 8px; 
+    }
+    .stat-value { 
+        font-size: 28px; 
+        font-weight: 700; 
+    }
+    .date-group { 
+        margin-bottom: 30px; 
+    }
     .date-header {
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 600;
         margin-bottom: 15px;
         padding-bottom: 10px;
@@ -32,30 +53,36 @@
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 15px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         border-left: 4px solid var(--primary);
-        transition: transform 0.2s;
+        transition: all 0.2s ease;
     }
     .workout-card:hover {
-        transform: translateX(5px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     .workout-title {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 600;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
+        gap: 10px;
     }
     .workout-meta {
         display: flex;
         gap: 20px;
         flex-wrap: wrap;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
         font-size: 13px;
         color: var(--gray);
+    }
+    .workout-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
     .badge {
         padding: 4px 10px;
@@ -63,8 +90,14 @@
         font-size: 11px;
         font-weight: 600;
     }
-    .badge-completed { background: #d4edda; color: #155724; }
-    .badge-pending { background: #fff3cd; color: #856404; }
+    .badge-completed { 
+        background: #d4edda; 
+        color: #155724; 
+    }
+    .badge-pending { 
+        background: #fff3cd; 
+        color: #856404; 
+    }
     .search-bar {
         display: flex;
         gap: 10px;
@@ -76,6 +109,12 @@
         padding: 10px 15px;
         border: 1px solid #ddd;
         border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+    }
+    .search-bar input:focus {
+        outline: none;
+        border-color: var(--primary);
     }
     .btn {
         padding: 10px 20px;
@@ -86,14 +125,70 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: opacity 0.2s;
     }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-danger { background: #dc3545; color: white; }
-    .btn-sm { padding: 5px 12px; font-size: 12px; }
-    .exercise-list { margin-top: 12px; padding-left: 20px; }
-    .exercise-item { padding: 3px 0; font-size: 13px; }
+    .btn-primary { 
+        background: var(--primary); 
+        color: white; 
+    }
+    .btn-primary:hover {
+        opacity: 0.9;
+    }
+    .btn-danger { 
+        background: #dc3545; 
+        color: white; 
+    }
+    .btn-danger:hover {
+        opacity: 0.9;
+    }
+    .btn-sm { 
+        padding: 5px 12px; 
+        font-size: 12px; 
+    }
+    .exercise-list { 
+        margin-top: 12px; 
+        padding-top: 12px; 
+        border-top: 1px solid #e0e0e0;
+    }
+    .exercise-list strong {
+        font-size: 13px;
+        color: var(--gray-dark);
+    }
+    .exercise-item { 
+        padding: 4px 0; 
+        font-size: 13px; 
+        color: var(--gray);
+    }
+    .completed-info {
+        margin-top: 10px;
+        font-size: 11px;
+        color: var(--gray);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .empty-state {
+        background: white;
+        padding: 60px;
+        text-align: center;
+        border-radius: 12px;
+    }
+    .empty-state i {
+        font-size: 48px;
+        color: var(--gray);
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
     @media (max-width: 768px) {
-        .workout-meta { flex-direction: column; gap: 8px; }
+        .workout-meta {
+            flex-direction: column;
+            gap: 8px;
+        }
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 
@@ -118,10 +213,17 @@
 
 <div class="search-bar">
     <input type="text" id="search-input" placeholder="Search by username..." class="form-control">
-    <button class="btn btn-primary" onclick="searchWorkouts()"><i class="fas fa-search"></i> Search</button>
+    <button class="btn btn-primary" onclick="searchWorkouts()">
+        <i class="fas fa-search"></i> Search
+    </button>
 </div>
 
-<div id="workouts-container"><div style="text-align: center; padding: 40px;">Loading workouts...</div></div>
+<div id="workouts-container">
+    <div class="empty-state">
+        <i class="fas fa-dumbbell"></i>
+        <p>Loading workouts...</p>
+    </div>
+</div>
 
 <script>
     let allWorkouts = [];
@@ -141,26 +243,33 @@
             displayGroupedWorkouts(allWorkouts);
         } catch (error) {
             console.error('Error loading workouts:', error);
-            document.getElementById('workouts-container').innerHTML = '<div style="background: white; padding: 40px; text-align: center; color: var(--danger);">Error loading workouts</div>';
+            document.getElementById('workouts-container').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Error loading workouts</p></div>';
         }
     }
     
     function displayGroupedWorkouts(workouts) {
         const container = document.getElementById('workouts-container');
         if (!workouts || workouts.length === 0) {
-            container.innerHTML = '<div style="background: white; padding: 40px; text-align: center;">No workouts found</div>';
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-dumbbell"></i><p>No workouts found</p></div>';
             return;
         }
         
-        const today = new Date(); today.setHours(0,0,0,0);
-        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-        const thisWeek = new Date(today); thisWeek.setDate(thisWeek.getDate() - 7);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const thisWeek = new Date(today);
+        thisWeek.setDate(thisWeek.getDate() - 7);
         
         const groups = { today: [], yesterday: [], week: [], older: [] };
         
         workouts.forEach(w => {
-            if (!w.date) { groups.older.push(w); return; }
-            const d = new Date(w.date); d.setHours(0,0,0,0);
+            if (!w.date) {
+                groups.older.push(w);
+                return;
+            }
+            const d = new Date(w.date);
+            d.setHours(0, 0, 0, 0);
             if (d.getTime() === today.getTime()) groups.today.push(w);
             else if (d.getTime() === yesterday.getTime()) groups.yesterday.push(w);
             else if (d >= thisWeek) groups.week.push(w);
@@ -168,52 +277,114 @@
         });
         
         let html = '';
-        if (groups.today.length) html += `<div class="date-group"><div class="date-header"><i class="fas fa-sun"></i> Today (${groups.today.length})</div>${renderCards(groups.today)}</div>`;
-        if (groups.yesterday.length) html += `<div class="date-group"><div class="date-header"><i class="fas fa-cloud"></i> Yesterday (${groups.yesterday.length})</div>${renderCards(groups.yesterday)}</div>`;
-        if (groups.week.length) html += `<div class="date-group"><div class="date-header"><i class="fas fa-calendar-week"></i> This Week (${groups.week.length})</div>${renderCards(groups.week)}</div>`;
-        if (groups.older.length) html += `<div class="date-group"><div class="date-header"><i class="fas fa-history"></i> Earlier (${groups.older.length})</div>${renderCards(groups.older)}</div>`;
+        
+        if (groups.today.length) {
+            html += `<div class="date-group"><div class="date-header"><i class="fas fa-sun"></i> Today (${groups.today.length})</div>${renderCards(groups.today)}</div>`;
+        }
+        if (groups.yesterday.length) {
+            html += `<div class="date-group"><div class="date-header"><i class="fas fa-cloud"></i> Yesterday (${groups.yesterday.length})</div>${renderCards(groups.yesterday)}</div>`;
+        }
+        if (groups.week.length) {
+            html += `<div class="date-group"><div class="date-header"><i class="fas fa-calendar-week"></i> This Week (${groups.week.length})</div>${renderCards(groups.week)}</div>`;
+        }
+        if (groups.older.length) {
+            html += `<div class="date-group"><div class="date-header"><i class="fas fa-history"></i> Earlier (${groups.older.length})</div>${renderCards(groups.older)}</div>`;
+        }
+        
         container.innerHTML = html;
     }
     
     function renderCards(workouts) {
         return workouts.map(w => {
-            const exercises = (w.exercises || []).slice(0,3).map(e => {
-                if (e.reps) return `<div class="exercise-item">• ${e.name}: ${e.sets || 1} × ${e.reps} reps</div>`;
-                return `<div class="exercise-item">• ${e.name}: ${e.sets || 1} × ${e.duration}s</div>`;
+            const exercises = (w.exercises || []).slice(0, 3).map(e => {
+                if (e.reps) {
+                    return `<div class="exercise-item">• ${e.name}: ${e.sets || 1} x ${e.reps} reps</div>`;
+                }
+                return `<div class="exercise-item">• ${e.name}: ${e.sets || 1} x ${e.duration}s</div>`;
             }).join('');
-            const more = (w.exercises || []).length > 3 ? `<div class="exercise-item" style="color: var(--gray);">+ ${(w.exercises || []).length - 3} more...</div>` : '';
+            
+            const moreCount = (w.exercises || []).length - 3;
+            const moreHtml = moreCount > 0 ? `<div class="exercise-item" style="color: var(--gray);">+ ${moreCount} more exercises...</div>` : '';
             
             return `
                 <div class="workout-card">
                     <div class="workout-title">
-                        <span><i class="fas fa-user-circle"></i> ${w.user__username}</span>
-                        <span class="badge ${w.is_completed ? 'badge-completed' : 'badge-pending'}">${w.is_completed ? '✓ Completed' : '⏳ Pending'}</span>
+                        <span><i class="fas fa-user-circle"></i> ${escapeHtml(w.user__username)}</span>
+                        <span class="badge ${w.is_completed ? 'badge-completed' : 'badge-pending'}">${w.is_completed ? 'Completed' : 'Pending'}</span>
                     </div>
                     <div class="workout-meta">
                         <span><i class="fas fa-calendar"></i> ${w.date}</span>
                         <span><i class="fas fa-clock"></i> ${w.duration} min</span>
                         <span><i class="fas fa-fire"></i> ${w.calories_burned || 0} cal</span>
                     </div>
-                    <div class="exercise-list"><strong>Exercises:</strong> ${exercises}${more}</div>
-                    ${w.completed_at ? `<div style="margin-top: 10px; font-size: 12px; color: var(--gray);"><i class="fas fa-check-circle"></i> Completed: ${w.completed_at}</div>` : ''}
-                    <div style="margin-top: 15px;"><button onclick="deleteWorkout(${w.id})" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete</button></div>
+                    <div class="exercise-list">
+                        <strong>Exercises:</strong>
+                        ${exercises}
+                        ${moreHtml}
+                    </div>
+                    ${w.completed_at ? `<div class="completed-info"><i class="fas fa-check-circle" style="color: var(--success);"></i> Completed: ${w.completed_at}</div>` : ''}
+                    <div style="margin-top: 15px;">
+                        <button onclick="deleteWorkout('${w.id}')" class="btn btn-danger btn-sm">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
     }
     
-    function searchWorkouts() { currentSearch = document.getElementById('search-input').value; loadWorkouts(); }
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function searchWorkouts() {
+        currentSearch = document.getElementById('search-input').value;
+        loadWorkouts();
+    }
     
     async function deleteWorkout(id) {
-        if (confirm('Delete this workout?')) {
-            const r = await fetch(`/dashboard/api/user-workouts/${id}/delete/`, { 
-                method: 'DELETE', 
-                headers: { 'X-CSRFToken': getCookie('csrftoken') } 
-            });
-            if (r.ok) loadWorkouts();
-            else alert('Error deleting workout');
+        if (confirm('Delete this workout? This action cannot be undone.')) {
+            try {
+                const response = await fetch(`/dashboard/api/user-workouts/${id}/delete/`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                });
+                if (response.ok) {
+                    loadWorkouts();
+                } else {
+                    alert('Error deleting workout');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error deleting workout');
+            }
         }
     }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Add enter key search
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchWorkouts();
+        }
+    });
     
     loadWorkouts();
 </script>

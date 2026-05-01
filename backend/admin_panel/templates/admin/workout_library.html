@@ -13,7 +13,7 @@
         background: white;
         padding: 20px;
         border-radius: 15px;
-        border-left: 4px solid #4a90e2;
+        border-left: 4px solid var(--primary);
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     .stat-value { 
@@ -43,19 +43,19 @@
         width: 100%;
         height: 180px;
         object-fit: cover;
-        background: #e3f2fd;
+        background: var(--primary-light);
     }
     .workout-image-placeholder {
         width: 100%;
         height: 180px;
-        background: #e3f2fd;
+        background: var(--primary-light);
         display: flex;
         align-items: center;
         justify-content: center;
     }
     .workout-image-placeholder i {
         font-size: 60px;
-        color: #4a90e2;
+        color: var(--primary);
         opacity: 0.5;
     }
     .workout-content {
@@ -64,7 +64,7 @@
     .workout-name {
         font-size: 18px;
         font-weight: 700;
-        color: #2c6bb0;
+        color: var(--primary-dark);
         margin-bottom: 10px;
         display: flex;
         justify-content: space-between;
@@ -108,7 +108,7 @@
         font-weight: 500;
         transition: opacity 0.2s;
     }
-    .btn-primary { background: #4a90e2; color: white; }
+    .btn-primary { background: var(--primary); color: white; }
     .btn-danger { background: #dc3545; color: white; }
     .btn-warning { background: #ffc107; color: #333; }
     .btn-success { background: #28a745; color: white; }
@@ -139,20 +139,20 @@
     }
     .empty-state i {
         font-size: 60px;
-        color: #6c757d;
+        color: var(--gray);
         margin-bottom: 20px;
     }
     .workout-meta {
         display: flex;
         gap: 15px;
         font-size: 13px;
-        color: #6c757d;
+        color: var(--gray);
         margin-bottom: 10px;
         flex-wrap: wrap;
     }
     .workout-description {
         font-size: 13px;
-        color: #6c757d;
+        color: var(--gray);
         margin-bottom: 10px;
         line-height: 1.4;
     }
@@ -171,8 +171,8 @@
 
 <div class="search-bar">
     <input type="text" id="search-input" placeholder="Search workouts by name..." class="form-control">
-    <button class="btn btn-primary" id="search-btn">Search</button>
-    <a href="/dashboard/workout-library/create/" class="btn btn-success">Create Template</a>
+    <button class="btn btn-primary" onclick="searchWorkouts()">Search</button>
+    <button class="btn btn-success" onclick="location.href='/dashboard/workout-library/create/'">Create Template</button>
 </div>
 
 <div id="workouts-container">
@@ -180,25 +180,22 @@
 </div>
 
 <script>
-    var allWorkouts = [];
-    var currentSearch = '';
+    let allWorkouts = [];
+    let currentSearch = '';
     
     async function loadWorkouts() {
         try {
-            var response = await fetch('/dashboard/api/workout-library/list/');
-            var data = await response.json();
+            const response = await fetch('/dashboard/api/workout-library/list/');
+            const data = await response.json();
             
             allWorkouts = data.templates || [];
             document.getElementById('total-workouts').innerText = data.total || 0;
-            var activeCount = 0;
-            for (var i = 0; i < allWorkouts.length; i++) {
-                if (allWorkouts[i].is_active) activeCount++;
-            }
+            const activeCount = allWorkouts.filter(function(w) { return w.is_active; }).length;
             document.getElementById('active-workouts').innerText = activeCount;
             
             displayWorkouts(allWorkouts);
         } catch (error) {
-            console.log('Error loading workouts:', error);
+            console.error('Error loading workouts:', error);
             document.getElementById('workouts-container').innerHTML = '<div class="empty-state"><i class="fas fa-dumbbell"></i><h3>No Workout Templates</h3><p>Click "Create Template" to add your first workout.</p></div>';
         }
     }
@@ -207,14 +204,11 @@
         var container = document.getElementById('workouts-container');
         var filtered = workouts;
         
-        if (currentSearch !== '') {
+        if (currentSearch) {
             var searchLower = currentSearch.toLowerCase();
-            filtered = [];
-            for (var i = 0; i < workouts.length; i++) {
-                if (workouts[i].name.toLowerCase().indexOf(searchLower) !== -1) {
-                    filtered.push(workouts[i]);
-                }
-            }
+            filtered = workouts.filter(function(w) {
+                return w.name.toLowerCase().indexOf(searchLower) !== -1;
+            });
         }
         
         if (filtered.length === 0) {
@@ -240,14 +234,14 @@
                 difficultyText = 'Medium';
             }
             
-            var exercises = workout.exercises || [];
             var exercisesHtml = '';
-            for (var j = 0; j < exercises.length && j < 4; j++) {
+            var exercises = workout.exercises || [];
+            for (var j = 0; j < Math.min(exercises.length, 4); j++) {
                 var ex = exercises[j];
                 if (ex.reps) {
-                    exercisesHtml += '<div class="exercise-item"><span>' + ex.name + '</span><span>' + (ex.sets || 1) + ' x ' + ex.reps + ' reps ' + (ex.rest ? '| rest ' + ex.rest + 's' : '') + '</span></div>';
+                    exercisesHtml += '<div class="exercise-item"><span>' + ex.name + '</span><span>' + (ex.sets || 1) + ' x ' + ex.reps + ' reps' + (ex.rest ? ' | rest ' + ex.rest + 's' : '') + '</span></div>';
                 } else if (ex.duration) {
-                    exercisesHtml += '<div class="exercise-item"><span>' + ex.name + '</span><span>' + (ex.sets || 1) + ' x ' + ex.duration + 's ' + (ex.rest ? '| rest ' + ex.rest + 's' : '') + '</span></div>';
+                    exercisesHtml += '<div class="exercise-item"><span>' + ex.name + '</span><span>' + (ex.sets || 1) + ' x ' + ex.duration + 's' + (ex.rest ? ' | rest ' + ex.rest + 's' : '') + '</span></div>';
                 } else {
                     exercisesHtml += '<div class="exercise-item"><span>' + ex.name + '</span><span></span></div>';
                 }
@@ -256,7 +250,7 @@
             var moreCount = exercises.length - 4;
             var moreHtml = '';
             if (moreCount > 0) {
-                moreHtml = '<div class="exercise-item" style="color: #6c757d; justify-content: center;">+ ' + moreCount + ' more exercises...</div>';
+                moreHtml = '<div class="exercise-item" style="color: var(--gray); justify-content: center;">+ ' + moreCount + ' more exercises...</div>';
             }
             
             var imageHtml = '';
@@ -265,11 +259,6 @@
             } else {
                 imageHtml = '<div class="workout-image-placeholder"><i class="fas fa-dumbbell"></i></div>';
             }
-            
-            // Fix: Wrap UUID in quotes for the onclick function
-            var workoutId = workout.id;
-            var isStringId = typeof workoutId === 'string' && workoutId.indexOf('-') !== -1;
-            var idParam = isStringId ? '"' + workoutId + '"' : workoutId;
             
             html += '<div class="workout-card">';
             html += imageHtml;
@@ -292,8 +281,8 @@
             html += moreHtml;
             html += '</div>';
             html += '<div class="action-buttons">';
-            html += '<button class="btn btn-warning btn-sm" onclick="editWorkout(\'' + workoutId + '\')">Edit</button>';
-            html += '<button class="btn btn-danger btn-sm" onclick="deleteWorkout(\'' + workoutId + '\')">Delete</button>';
+            html += '<button class="btn btn-warning btn-sm" onclick="editWorkout(' + workout.id + ')">Edit</button>';
+            html += '<button class="btn btn-danger btn-sm" onclick="deleteWorkout(' + workout.id + ')">Delete</button>';
             html += '</div>';
             html += '</div></div>';
         }
@@ -302,45 +291,44 @@
         container.innerHTML = html;
     }
     
-    function searchWorkouts() {
-        currentSearch = document.getElementById('search-input').value;
-        displayWorkouts(allWorkouts);
+    function searchWorkouts() { 
+        currentSearch = document.getElementById('search-input').value; 
+        displayWorkouts(allWorkouts); 
     }
     
     function editWorkout(workoutId) {
         window.location.href = '/dashboard/workout-library/' + workoutId + '/edit/';
     }
     
-    async function deleteWorkout(workoutId) {
+    async function deleteWorkout(id) {
         if (confirm('Delete this workout template? This action cannot be undone.')) {
             try {
-                var response = await fetch('/dashboard/api/workout-library/' + workoutId + '/delete/', {
-                    method: 'DELETE',
-                    headers: {
+                const response = await fetch('/dashboard/api/workout-library/' + id + '/delete/', { 
+                    method: 'DELETE', 
+                    headers: { 
                         'X-CSRFToken': getCookie('csrftoken'),
                         'Content-Type': 'application/json'
-                    }
+                    } 
                 });
                 if (response.ok) {
                     alert('Workout deleted successfully');
                     loadWorkouts();
                 } else {
-                    var errorText = await response.text();
-                    alert('Error deleting workout: ' + errorText);
+                    alert('Error deleting workout');
                 }
             } catch (error) {
-                console.log('Error:', error);
+                console.error('Error:', error);
                 alert('Error deleting workout');
             }
         }
     }
     
     function getCookie(name) {
-        var cookieValue = null;
+        let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
-            var cookies = document.cookie.split(';');
-            for (var i = 0; i < cookies.length; i++) {
-                var cookie = cookies[i].trim();
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
                 if (cookie.substring(0, name.length + 1) === (name + '=')) {
                     cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                     break;
@@ -350,7 +338,6 @@
         return cookieValue;
     }
     
-    document.getElementById('search-btn').addEventListener('click', searchWorkouts);
     document.getElementById('search-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             searchWorkouts();

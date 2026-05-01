@@ -2,6 +2,49 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
+<style>
+    .welcome-card {
+        background: var(--white);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border-left: 4px solid var(--secondary);
+    }
+    .welcome-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--gray-dark);
+        margin-bottom: 8px;
+    }
+    .welcome-subtitle {
+        color: var(--gray);
+        font-size: 14px;
+    }
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+    }
+    .quick-stat-item {
+        text-align: center;
+        padding: 15px;
+        background: var(--primary-light);
+        border-radius: 12px;
+    }
+    .quick-stat-number {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--primary);
+    }
+    .quick-stat-label {
+        font-size: 12px;
+        color: var(--gray);
+        margin-top: 5px;
+    }
+</style>
+
 <div class="stats-grid">
     <div class="stat-card primary">
         <div class="stat-title">Total Users</div>
@@ -17,14 +60,44 @@
     </div>
 </div>
 
+<div class="welcome-card">
+    <div class="welcome-title">
+        Welcome back, {{ request.user.username }}!
+    </div>
+    <div class="welcome-subtitle">
+        Here's what's happening with your fitness platform today.
+    </div>
+    
+   
+</div>
+
 <div class="data-table">
     <table>
-        <thead><tr><th>Welcome to Admin Dashboard</th></tr></thead>
+        <thead>
+            <tr>
+                
+            </tr>
+        </thead>
         <tbody>
-            <tr><td style="text-align: center; padding: 40px;">
-                <h2>Welcome, {{ request.user.username }}!</h2>
-                <p>Select an option from the sidebar to manage your fitness platform.</p>
-            </td></tr>
+            <tr>
+                <td style="text-align: center; padding: 40px;">
+                    <i class="fas fa-chart-line" style="font-size: 48px; color: var(--primary); margin-bottom: 15px; display: inline-block;"></i>
+                    <p style="color: var(--gray); margin-top: 10px;">
+                        Select an option from the sidebar to manage your fitness platform.
+                    </p>
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                        <a href="/dashboard/users/" class="btn btn-primary" style="padding: 8px 16px;">
+                            <i class="fas fa-users"></i> Manage Users
+                        </a>
+                        <a href="/dashboard/workout-library/" class="btn btn-primary" style="padding: 8px 16px; background: var(--secondary);">
+                            <i class="fas fa-dumbbell"></i> Workout Library
+                        </a>
+                        <a href="/dashboard/meals/" class="btn btn-primary" style="padding: 8px 16px; background: var(--success);">
+                            <i class="fas fa-utensils"></i> Manage Meals
+                        </a>
+                    </div>
+                 </td>
+             </tr>
         </tbody>
     </table>
 </div>
@@ -32,18 +105,28 @@
 <script>
     async function loadStats() {
         try {
-            // FIXED: Use /dashboard/api/ instead of /admin-panel/api/
             const response = await fetch('/dashboard/api/dashboard/stats/');
             const data = await response.json();
+            
             document.getElementById('total-users').textContent = data.total_users || 0;
             document.getElementById('active-users').textContent = data.active_users || 0;
             document.getElementById('total-workouts').textContent = data.total_workouts || 0;
+            
+            // Calculate percentages
+            if (data.total_users > 0) {
+                const activePercent = Math.round((data.active_users / data.total_users) * 100);
+                document.getElementById('active-percent').textContent = activePercent + '%';
+                
+                const workoutsPerUser = (data.total_workouts / data.total_users).toFixed(1);
+                document.getElementById('workout-per-user').textContent = workoutsPerUser;
+            }
+            
         } catch (error) {
             console.error('Error loading stats:', error);
         }
     }
+    
     loadStats();
-    // Refresh every 30 seconds
     setInterval(loadStats, 30000);
 </script>
 {% endblock %}

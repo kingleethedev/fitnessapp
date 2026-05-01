@@ -48,3 +48,6 @@ sentry-sdk==1.38.0
 # Activity tracking
 django-activity-stream==2.0.0
 django-cleanup
+
+cloudinary==1.40.0
+django-cloudinary-storage==0.3.0

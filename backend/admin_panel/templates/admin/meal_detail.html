@@ -2,48 +2,168 @@
 {% block page_title %}Meal Details: {{ meal.name }}{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-    <div style="background: var(--white); padding: 25px; border-radius: 15px;">
-        <h3>Meal Information</h3>
-        <table style="width: 100%; margin-top: 15px;">
-            <tr><td><strong>Name:</strong></td><td>{{ meal.name }}</td></tr>
-            <tr><td><strong>Type:</strong></td><td>{{ meal.get_meal_type_display }}</td></tr>
-            <tr><td><strong>Calories:</strong></td><td>{{ meal.calories|default:"-" }}</td></tr>
-            <tr><td><strong>Protein:</strong></td><td>{{ meal.protein|default:"-" }}g</td></tr>
-            <tr><td><strong>Carbs:</strong></td><td>{{ meal.carbs|default:"-" }}g</td></tr>
-            <tr><td><strong>Fats:</strong></td><td>{{ meal.fats|default:"-" }}g</td></tr>
-            <tr><td><strong>Dietary:</strong></td><td>
-                {% if meal.is_vegetarian %}🌱 Vegetarian {% endif %}
-                {% if meal.is_vegan %}🌿 Vegan {% endif %}
-                {% if meal.is_gluten_free %}🚫 Gluten Free {% endif %}
-            </td></tr>
-        </table>
+<style>
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    .info-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .stat-label {
+        font-weight: 500;
+        color: var(--gray-dark);
+        font-size: 13px;
+    }
+    .stat-value {
+        color: var(--gray);
+        font-size: 13px;
+    }
+    .section-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--primary-light);
+        color: var(--primary-dark);
+    }
+    .badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .badge-active { background: #d4edda; color: #155724; }
+    .badge-inactive { background: #e2e3e5; color: #383d41; }
+    .action-buttons {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+    .btn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        border: none;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: var(--gray-light); color: var(--gray-dark); }
+    .btn-secondary:hover { background: #e0e0e0; }
+    @media (max-width: 768px) {
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="info-grid">
+    <div class="info-card">
+        <h3 class="section-title">Meal Information</h3>
+        <div class="stat-row">
+            <span class="stat-label">Name:</span>
+            <span class="stat-value">{{ meal.name }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Type:</span>
+            <span class="stat-value">{{ meal.get_meal_type_display }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Calories:</span>
+            <span class="stat-value">{{ meal.calories|default:"-" }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Protein:</span>
+            <span class="stat-value">{{ meal.protein|default:"-" }}g</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Carbs:</span>
+            <span class="stat-value">{{ meal.carbs|default:"-" }}g</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Fats:</span>
+            <span class="stat-value">{{ meal.fats|default:"-" }}g</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Status:</span>
+            <span class="stat-value">
+                {% if meal.is_active %}
+                    <span class="badge badge-active">Active</span>
+                {% else %}
+                    <span class="badge badge-inactive">Inactive</span>
+                {% endif %}
+            </span>
+        </div>
     </div>
     
-    <div style="background: var(--white); padding: 25px; border-radius: 15px;">
-        {% if meal.image %}
-            <h3>Meal Image</h3>
-            <img src="{{ meal.image.url }}" alt="{{ meal.name }}" style="max-width: 100%; border-radius: 10px; margin-top: 10px;">
-        {% endif %}
+    <div class="info-card">
+        <h3 class="section-title">Dietary Information</h3>
+        <div class="stat-row">
+            <span class="stat-label">Vegetarian:</span>
+            <span class="stat-value">{% if meal.is_vegetarian %}Yes{% else %}No{% endif %}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Vegan:</span>
+            <span class="stat-value">{% if meal.is_vegan %}Yes{% else %}No{% endif %}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Gluten Free:</span>
+            <span class="stat-value">{% if meal.is_gluten_free %}Yes{% else %}No{% endif %}</span>
+        </div>
     </div>
 </div>
 
-<div style="background: var(--white); padding: 25px; border-radius: 15px; margin-top: 20px;">
-    <h3>Description</h3>
-    <p>{{ meal.description|default:"No description" }}</p>
-    
-    <h3 style="margin-top: 15px;">Ingredients</h3>
-    <p>{{ meal.ingredients|default:"Not specified"|linebreaks }}</p>
-    
-    <h3 style="margin-top: 15px;">Instructions</h3>
-    <p>{{ meal.instructions|default:"Not specified"|linebreaks }}</p>
+{% if meal.description %}
+<div class="info-card" style="margin-bottom: 20px;">
+    <h3 class="section-title">Description</h3>
+    <p style="color: var(--gray); line-height: 1.5;">{{ meal.description }}</p>
 </div>
+{% endif %}
 
-<div style="margin-top: 20px; display: flex; gap: 10px;">
-    <a href="/admin-panel/meals/{{ meal.id }}/edit/" class="btn btn-primary">
+{% if meal.ingredients %}
+<div class="info-card" style="margin-bottom: 20px;">
+    <h3 class="section-title">Ingredients</h3>
+    <p style="color: var(--gray); line-height: 1.5; white-space: pre-line;">{{ meal.ingredients }}</p>
+</div>
+{% endif %}
+
+{% if meal.instructions %}
+<div class="info-card" style="margin-bottom: 20px;">
+    <h3 class="section-title">Instructions</h3>
+    <p style="color: var(--gray); line-height: 1.5; white-space: pre-line;">{{ meal.instructions }}</p>
+</div>
+{% endif %}
+
+{% if meal.image %}
+<div class="info-card" style="margin-bottom: 20px;">
+    <h3 class="section-title">Meal Image</h3>
+    <img src="{{ meal.image.url }}" alt="{{ meal.name }}" style="max-width: 300px; border-radius: 8px;">
+</div>
+{% endif %}
+
+<div class="action-buttons">
+    <a href="/dashboard/meals/{{ meal.id }}/edit/" class="btn btn-primary">
         <i class="fas fa-edit"></i> Edit Meal
     </a>
-    <a href="/admin-panel/meals/" class="btn btn-secondary">
+    <a href="/dashboard/meals/" class="btn btn-secondary">
         <i class="fas fa-arrow-left"></i> Back to Meals
     </a>
 </div>
