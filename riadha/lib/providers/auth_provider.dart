@@ -1,17 +1,25 @@
+// lib/providers/auth_provider.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/services/api_service.dart';
 
 class AuthProvider extends ChangeNotifier {
+  final ApiService _apiService;
   Map<String, dynamic>? _currentUser;
   bool _isLoading = false;
   bool _isAuthenticated = false;
+  
+  // Add logout stream for global logout events
+  final _logoutController = StreamController<void>.broadcast();
+  Stream<void> get onLogout => _logoutController.stream;
   
   Map<String, dynamic>? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _isAuthenticated;
   
-  AuthProvider() {
+  // Constructor with required apiService
+  AuthProvider({required ApiService apiService}) : _apiService = apiService {
     _checkAuthStatus(); // This runs when app starts
   }
   
@@ -49,8 +57,7 @@ class AuthProvider extends ChangeNotifier {
   
   Future<void> _syncOnboardingStatus() async {
     try {
-      final apiService = ApiService();
-      await apiService.post('/users/complete_onboarding/', data: {
+      await _apiService.post('/users/complete_onboarding/', data: {
         'goal': 'FITNESS',
         'experience_level': 'BEGINNER',
         'training_location': 'HOME',
@@ -66,8 +73,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> loadUserProfile() async {
     print('📱 Loading user profile...');
     try {
-      final apiService = ApiService();
-      final response = await apiService.get('/users/profile/');
+      final response = await _apiService.get('/users/profile/');
       print('✅ Profile loaded: ${response['username']}');
       _currentUser = response;
       
@@ -78,6 +84,33 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('❌ Error loading profile: $e');
+      
+      // If error is due to token expiration, try to refresh token
+      if (e.toString().contains('401') || 
+          e.toString().contains('Session expired') ||
+          e.toString().contains('Token is invalid')) {
+        print('🔄 Token issue detected, attempting refresh...');
+        final refreshed = await _apiService.refreshTokenPublic();
+        
+        if (refreshed) {
+          // Retry loading profile after successful refresh
+          try {
+            final response = await _apiService.get('/users/profile/');
+            _currentUser = response;
+            notifyListeners();
+          } catch (retryError) {
+            print('❌ Still error after refresh: $retryError');
+            await logout();
+            rethrow;
+          }
+        } else {
+          // Refresh failed, logout
+          await logout();
+          rethrow;
+        }
+      } else {
+        rethrow;
+      }
     }
   }
   
@@ -87,8 +120,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     
     try {
-      final apiService = ApiService();
-      final response = await apiService.post('/auth/login/', data: {
+      final response = await _apiService.post('/auth/login/', data: {
         'email': email,
         'password': password,
       });
@@ -96,17 +128,8 @@ class AuthProvider extends ChangeNotifier {
       print('📥 Login response received');
       
       if (response.containsKey('access') && response.containsKey('refresh')) {
-        final prefs = await SharedPreferences.getInstance();
-        
-        // Store token with multiple keys for compatibility
-        final accessToken = response['access'];
-        final refreshToken = response['refresh'];
-        
-        await prefs.setString('access_token', accessToken);
-        await prefs.setString('access', accessToken);
-        await prefs.setString('token', accessToken);
-        await prefs.setString('auth_token', accessToken);
-        await prefs.setString('refresh_token', refreshToken);
+        // Use ApiService's saveTokens method
+        await _apiService.saveTokens(response['access'], response['refresh']);
         
         print('✅ Token saved successfully');
         
@@ -137,7 +160,6 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     
     try {
-      final apiService = ApiService();
       final requestData = {
         'username': userData['username'],
         'email': userData['email'],
@@ -145,24 +167,16 @@ class AuthProvider extends ChangeNotifier {
         'confirm_password': userData['password'],
       };
       
-      final response = await apiService.post('/auth/register/', data: requestData);
+      final response = await _apiService.post('/auth/register/', data: requestData);
       
       print('📥 Registration response received');
       
       if (response.containsKey('access') && response.containsKey('refresh')) {
-        final prefs = await SharedPreferences.getInstance();
-        
-        // Store token with multiple keys for compatibility
-        final accessToken = response['access'];
-        final refreshToken = response['refresh'];
-        
-        await prefs.setString('access_token', accessToken);
-        await prefs.setString('access', accessToken);
-        await prefs.setString('token', accessToken);
-        await prefs.setString('auth_token', accessToken);
-        await prefs.setString('refresh_token', refreshToken);
+        // Use ApiService's saveTokens method
+        await _apiService.saveTokens(response['access'], response['refresh']);
         
         // Mark onboarding as not completed yet
+        final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('onboarding_completed', false);
         
         print('✅ Registration successful! Token saved');
@@ -203,14 +217,17 @@ class AuthProvider extends ChangeNotifier {
     _currentUser = null;
     _isAuthenticated = false;
     notifyListeners();
+    
+    // Broadcast logout event to all listeners
+    _logoutController.add(null);
+    
     print('✅ Logout complete');
   }
   
   Future<void> completeOnboarding(Map<String, dynamic> onboardingData) async {
     print('📋 Completing onboarding with: $onboardingData');
     try {
-      final apiService = ApiService();
-      final response = await apiService.post('/users/complete_onboarding/', data: onboardingData);
+      final response = await _apiService.post('/users/complete_onboarding/', data: onboardingData);
       print('📥 Onboarding response: $response');
       
       if (response['status'] == 'success') {
@@ -237,8 +254,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> updateProfile(Map<String, dynamic> data) async {
     print('📝 Updating profile: $data');
     try {
-      final apiService = ApiService();
-      await apiService.patch('/users/update_profile/', data: data);
+      await _apiService.patch('/users/update_profile/', data: data);
       await loadUserProfile();
       print('✅ Profile updated successfully');
     } catch (e) {
@@ -260,5 +276,16 @@ class AuthProvider extends ChangeNotifier {
       print('🔐 Token preview: ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
     }
     return token != null;
+  }
+  
+  // Public method to manually refresh token if needed
+  Future<bool> refreshToken() async {
+    return await _apiService.refreshTokenPublic();
+  }
+  
+  @override
+  void dispose() {
+    _logoutController.close();
+    super.dispose();
   }
 }

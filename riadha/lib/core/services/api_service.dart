@@ -1,12 +1,95 @@
 // lib/core/services/api_service.dart
-
+// lib/core/services/api_service.dart
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = 'https://fitnessapp-4oeh.onrender.com/api';
-
+  
+  // Track if a refresh is already in progress
+  static bool _isRefreshing = false;
+  static final List<Completer> _pendingRequests = [];
+  
+  // Timer for auto-refresh
+  Timer? _refreshTimer;
+  
+  // Token expiration tracking
+  DateTime? _tokenExpiryTime;
+  
+  // =========================
+  // INITIALIZATION
+  // =========================
+  Future<void> init() async {
+    await _loadTokenAndSetupRefresh();
+  }
+  
+  Future<void> _loadTokenAndSetupRefresh() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    
+    if (token != null) {
+      // Decode JWT token to get expiry
+      _tokenExpiryTime = _getTokenExpiry(token);
+      
+      if (_tokenExpiryTime != null) {
+        _scheduleAutoRefresh();
+      }
+    }
+  }
+  
+  DateTime? _getTokenExpiry(String token) {
+    try {
+      // JWT tokens are base64 encoded
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      
+      // Decode the payload (second part)
+      String payload = parts[1];
+      // Add padding if needed
+      while (payload.length % 4 != 0) {
+        payload += '=';
+      }
+      
+      final decoded = utf8.decode(base64.decode(payload));
+      final jsonData = json.decode(decoded);
+      
+      // exp is in seconds since epoch
+      final expiry = DateTime.fromMillisecondsSinceEpoch(
+        (jsonData['exp'] * 1000).toInt()
+      );
+      
+      print('🔐 Token expires at: $expiry');
+      return expiry;
+    } catch (e) {
+      print('❌ Error decoding token: $e');
+      return null;
+    }
+  }
+  
+  void _scheduleAutoRefresh() {
+    if (_tokenExpiryTime == null) return;
+    
+    // Cancel existing timer
+    _refreshTimer?.cancel();
+    
+    // Calculate time until expiry (refresh 5 minutes before expiry)
+    const refreshBuffer = Duration(minutes: 5);
+    final timeUntilExpiry = _tokenExpiryTime!.difference(DateTime.now());
+    final timeToRefresh = timeUntilExpiry - refreshBuffer;
+    
+    if (timeToRefresh.isNegative) {
+      // Token already expired or about to expire, refresh now
+      print('🔄 Token near expiry, refreshing now...');
+      _refreshToken();
+    } else if (timeToRefresh.inSeconds > 0) {
+      // Schedule refresh
+      print('⏰ Scheduling token refresh in ${timeToRefresh.inMinutes} minutes');
+      _refreshTimer = Timer(timeToRefresh, () => _refreshToken());
+    }
+  }
+  
   // =========================
   // HEADERS
   // =========================
@@ -28,9 +111,6 @@ class ApiService {
       headers['Authorization'] = 'Bearer $token';
     }
 
-    print('📋 Headers: ${headers.keys}');
-    print('📋 Auth header present: ${headers.containsKey('Authorization')}');
-
     return headers;
   }
 
@@ -46,7 +126,6 @@ class ApiService {
       final response = await http.get(Uri.parse(url), headers: headers);
 
       print('📥 Response: ${response.statusCode}');
-      print('📥 Body: ${response.body}');
 
       return await _handleResponse(
         response,
@@ -64,7 +143,6 @@ class ApiService {
   Future<dynamic> post(String endpoint, {dynamic data}) async {
     final url = '$baseUrl$endpoint';
     print('🌐 POST: $url');
-    print('📤 Data: $data');
 
     try {
       final headers = await _getHeaders();
@@ -76,7 +154,6 @@ class ApiService {
       );
 
       print('📥 Response: ${response.statusCode}');
-      print('📥 Body: ${response.body}');
 
       return await _handleResponse(
         response,
@@ -105,7 +182,6 @@ class ApiService {
       );
 
       print('📥 Response: ${response.statusCode}');
-      print('📥 Body: ${response.body}');
 
       return await _handleResponse(
         response,
@@ -138,7 +214,6 @@ class ApiService {
       final responseBody = await response.stream.bytesToString();
 
       print('📥 Response: ${response.statusCode}');
-      print('📥 Body: $responseBody');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (responseBody.isNotEmpty) {
@@ -160,7 +235,7 @@ class ApiService {
   }
 
   // =========================
-  // RESPONSE HANDLER (AUTO REFRESH CORE)
+  // RESPONSE HANDLER (WITH QUEUE)
   // =========================
   Future<dynamic> _handleResponse(
     http.Response response,
@@ -171,19 +246,46 @@ class ApiService {
       return jsonDecode(response.body);
     }
 
-    // 🚨 TOKEN EXPIRED → SILENT REFRESH
+    // 🚨 TOKEN EXPIRED → QUEUE REQUESTS
     if (response.statusCode == 401) {
-      print('🔄 Token expired, refreshing...');
+      print('🔄 Token expired, queuing request...');
 
-      final refreshed = await _refreshToken();
-
-      if (refreshed) {
-        print('✅ Token refreshed, retrying request...');
-        return await retryRequest(); // silent retry
+      // If already refreshing, wait for it to complete
+      if (_isRefreshing) {
+        final completer = Completer();
+        _pendingRequests.add(completer);
+        await completer.future;
+        // Retry the request after refresh
+        return await retryRequest();
       }
 
-      print('❌ Refresh failed - user must login again');
-      throw Exception('Session expired');
+      _isRefreshing = true;
+
+      try {
+        final refreshed = await _refreshToken();
+
+        if (refreshed) {
+          print('✅ Token refreshed, retrying queued requests...');
+          
+          // Complete all pending requests
+          for (var completer in _pendingRequests) {
+            completer.complete();
+          }
+          _pendingRequests.clear();
+          
+          // Retry the original request
+          return await retryRequest();
+        } else {
+          // Refresh failed completely
+          for (var completer in _pendingRequests) {
+            completer.completeError('Session expired');
+          }
+          _pendingRequests.clear();
+          throw Exception('Session expired');
+        }
+      } finally {
+        _isRefreshing = false;
+      }
     }
 
     print('❌ Server Error: ${response.statusCode}');
@@ -196,7 +298,7 @@ class ApiService {
   // =========================
   Future<bool> _refreshToken() async {
     final prefs = await SharedPreferences.getInstance();
-    final refreshToken = prefs.getString('refresh_token');
+    String? refreshToken = prefs.getString('refresh_token');
 
     if (refreshToken == null) {
       print('❌ No refresh token found');
@@ -204,31 +306,102 @@ class ApiService {
     }
 
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/token/refresh/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refresh': refreshToken}),
-      );
+      // Try multiple possible refresh token endpoints
+      List<String> refreshEndpoints = [
+        '/auth/token/refresh/',
+        '/auth/refresh/',
+        '/token/refresh/',
+        '/refresh/',
+      ];
+      
+      for (var endpoint in refreshEndpoints) {
+        print('🔄 Attempting to refresh token at: $endpoint');
+        
+        try {
+          final response = await http.post(
+            Uri.parse('$baseUrl$endpoint'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh': refreshToken}),
+          );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            final newAccess = data['access'];
+            
+            // Also update refresh token if server sends a new one
+            final newRefresh = data['refresh'] ?? refreshToken;
 
-        final newAccess = data['access'];
+            // Save both tokens
+            await prefs.setString('access_token', newAccess);
+            await prefs.setString('access', newAccess);
+            await prefs.setString('token', newAccess);
+            await prefs.setString('auth_token', newAccess);
+            await prefs.setString('refresh_token', newRefresh);
 
-        await prefs.setString('access_token', newAccess);
-        await prefs.setString('access', newAccess);
-        await prefs.setString('token', newAccess);
-        await prefs.setString('auth_token', newAccess);
+            // Update expiry tracking
+            _tokenExpiryTime = _getTokenExpiry(newAccess);
+            _scheduleAutoRefresh();
 
-        print('🔐 Access token refreshed successfully');
-        return true;
+            print('🔐 Token refreshed successfully using: $endpoint');
+            return true;
+          } else if (response.statusCode == 200) {
+            // Success
+            return true;
+          } else {
+            print('⚠️ Endpoint $endpoint returned ${response.statusCode}, trying next...');
+          }
+        } catch (e) {
+          print('⚠️ Error with endpoint $endpoint: $e');
+        }
       }
-
-      print('❌ Refresh token invalid');
+      
+      // If we get here, all endpoints failed
+      print('❌ All refresh token endpoints failed');
+      await _clearAllTokens();
       return false;
     } catch (e) {
-      print('❌ Refresh error: $e');
+      print('❌ Token refresh error: $e');
       return false;
     }
+  }
+  
+  // Public method to refresh token from outside
+  Future<bool> refreshTokenPublic() async {
+    return await _refreshToken();
+  }
+  
+  // =========================
+  // CLEAR ALL TOKENS
+  // =========================
+  Future<void> _clearAllTokens() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('access_token');
+    await prefs.remove('access');
+    await prefs.remove('token');
+    await prefs.remove('auth_token');
+    await prefs.remove('refresh_token');
+  }
+  
+  // =========================
+  // SAVE TOKENS ON LOGIN
+  // =========================
+  Future<void> saveTokens(String access, String refresh) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('access_token', access);
+    await prefs.setString('access', access);
+    await prefs.setString('token', access);
+    await prefs.setString('auth_token', access);
+    await prefs.setString('refresh_token', refresh);
+    
+    // Setup auto-refresh
+    _tokenExpiryTime = _getTokenExpiry(access);
+    _scheduleAutoRefresh();
+  }
+  
+  // =========================
+  // DISPOSE
+  // =========================
+  void dispose() {
+    _refreshTimer?.cancel();
   }
 }

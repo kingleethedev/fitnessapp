@@ -13,16 +13,57 @@ class WorkoutPreviewScreen extends StatefulWidget {
 }
 
 class _WorkoutPreviewScreenState extends State<WorkoutPreviewScreen> {
+  bool _isLoadingTemplates = false;
+  List<Map<String, dynamic>> _availableTemplates = [];
+  bool _showTemplateSelector = false;
+
   @override
   void initState() {
     super.initState();
     // Load today's workout when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
-      if (workoutProvider.todayWorkout == null) {
-        workoutProvider.loadTodayWorkout();
-      }
+      _loadTodayWorkout();
     });
+  }
+
+  Future<void> _loadTodayWorkout() async {
+    final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
+    
+    // Check if templates exist
+    await workoutProvider.checkAvailableTemplates();
+    
+    // Load today's workout (will use template if available)
+    await workoutProvider.loadTodayWorkout();
+    
+    // If no workout and no templates, show template selector
+    if (workoutProvider.todayWorkout == null && 
+        workoutProvider.availableTemplates.isNotEmpty &&
+        !workoutProvider.isLoading) {
+      setState(() {
+        _availableTemplates = workoutProvider.availableTemplates;
+        _showTemplateSelector = true;
+      });
+    }
+    
+    setState(() {});
+  }
+
+  Future<void> _useTemplate(String templateId) async {
+    setState(() {
+      _isLoadingTemplates = true;
+      _showTemplateSelector = false;
+    });
+    
+    final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
+    await workoutProvider.useTemplate(templateId);
+    
+    setState(() {
+      _isLoadingTemplates = false;
+    });
+    
+    // Refresh the display
+    await workoutProvider.loadTodayWorkout();
+    setState(() {});
   }
 
   @override
@@ -31,7 +72,7 @@ class _WorkoutPreviewScreenState extends State<WorkoutPreviewScreen> {
     final workout = workoutProvider.todayWorkout ?? workoutProvider.currentWorkout;
     
     // Show loading state
-    if (workoutProvider.isLoading) {
+    if (workoutProvider.isLoading || _isLoadingTemplates) {
       return Scaffold(
         backgroundColor: AppColors.white,
         appBar: AppBar(
@@ -55,6 +96,11 @@ class _WorkoutPreviewScreenState extends State<WorkoutPreviewScreen> {
           ),
         ),
       );
+    }
+    
+    // Show template selector if no workout and templates available
+    if (_showTemplateSelector && _availableTemplates.isNotEmpty) {
+      return _buildTemplateSelector();
     }
     
     // Show empty state if no workout
@@ -99,9 +145,10 @@ class _WorkoutPreviewScreenState extends State<WorkoutPreviewScreen> {
       );
     }
     
-    final exercises = workout['exercises'] as List;
+    final exercises = workout['exercises'] as List? ?? [];
     final totalDuration = workout['duration'] ?? 0;
     final isCompleted = workout['is_completed'] ?? false;
+    final templateName = workout['template_name'];
     
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -121,6 +168,33 @@ class _WorkoutPreviewScreenState extends State<WorkoutPreviewScreen> {
       ),
       body: Column(
         children: [
+          // Template info if from template
+          if (templateName != null)
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.lightBlue,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.fitness_center, size: 16, color: AppColors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'From: $templateName',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.blue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          
           // Workout summary card
           Container(
             margin: const EdgeInsets.all(16),
@@ -258,6 +332,186 @@ class _WorkoutPreviewScreenState extends State<WorkoutPreviewScreen> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTemplateSelector() {
+    return Scaffold(
+      backgroundColor: AppColors.white,
+      appBar: AppBar(
+        title: const Text('Choose Your Workout'),
+        backgroundColor: AppColors.white,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.lightBlue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.fitness_center, size: 40, color: AppColors.blue),
+                SizedBox(height: 8),
+                Text(
+                  'Select a workout template',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.blue,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Choose from our curated workouts',
+                  style: TextStyle(color: AppColors.greyDark),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _availableTemplates.length,
+              itemBuilder: (context, index) {
+                final template = _availableTemplates[index];
+                return _buildTemplateCard(template);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildTemplateCard(Map<String, dynamic> template) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.greyMedium),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _useTemplate(template['id']),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: AppColors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.fitness_center,
+                        color: AppColors.blue,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            template['name'] ?? 'Workout',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.blue,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            template['description'] ?? 'No description',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.greyDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    _buildInfoChip(Icons.timer, '${template['default_duration']} min'),
+                    _buildInfoChip(Icons.flag, template['goal'] ?? 'Fitness'),
+                    _buildInfoChip(Icons.people, template['experience_level'] ?? 'Beginner'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.blue,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'SELECT',
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildInfoChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.lightBlue,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: AppColors.blue),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              color: AppColors.blue,
+            ),
+          ),
         ],
       ),
     );

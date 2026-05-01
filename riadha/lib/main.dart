@@ -1,8 +1,10 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/colors.dart';
 import 'core/themes/app_theme.dart';
+import 'core/services/api_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/workout_provider.dart';
 import 'providers/meal_provider.dart';
@@ -28,10 +30,17 @@ import 'screens/payments/subscription_screen.dart';
 import 'screens/payments/payment_history_screen.dart';
 import 'screens/profile/profile_screen.dart';
 
+late ApiService apiService;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize SharedPreferences first
   await SharedPreferences.getInstance();
+  
+  // Initialize ApiService
+  apiService = ApiService();
+  await apiService.init();
   
   runApp(const FitnessApp());
 }
@@ -43,12 +52,12 @@ class FitnessApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => WorkoutProvider()),
-        ChangeNotifierProvider(create: (_) => MealProvider()),
-        ChangeNotifierProvider(create: (_) => PaymentProvider()),
-        ChangeNotifierProvider(create: (_) => SocialProvider()),
-        ChangeNotifierProvider(create: (_) => ProgressProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider(apiService: apiService)),
+        ChangeNotifierProvider(create: (_) => WorkoutProvider()..setApiService(apiService)),
+        ChangeNotifierProvider(create: (_) => MealProvider()..setApiService(apiService)),
+        ChangeNotifierProvider(create: (_) => PaymentProvider()..setApiService(apiService)),
+        ChangeNotifierProvider(create: (_) => SocialProvider()..setApiService(apiService)),
+        ChangeNotifierProvider(create: (_) => ProgressProvider()..setApiService(apiService)),
       ],
       child: MaterialApp(
         title: 'Fitness App',
