@@ -1,0 +1,50 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Create Challenge{% endblock %}
+
+{% block content %}
+<div style="background: white; padding: 30px; border-radius: 15px;">
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label>Challenge Name</label>
+            <input type="text" name="name" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" class="form-control" rows="3"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>Challenge Type</label>
+            <select name="challenge_type" class="form-control">
+                <option value="WORKOUTS">Workouts Count</option>
+                <option value="MINUTES">Total Minutes</option>
+                <option value="CALORIES">Calories Burned</option>
+                <option value="STREAK">Streak Days</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Target Value</label>
+            <input type="number" name="target_value" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Start Date</label>
+            <input type="date" name="start_date" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label>End Date</label>
+            <input type="date" name="end_date" class="form-control" required>
+        </div>
+        
+        <div style="margin-top: 30px; display: flex; gap: 15px;">
+            <button type="submit" class="btn btn-primary">Create Challenge</button>
+            <a href="{% url 'admin_challenges' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

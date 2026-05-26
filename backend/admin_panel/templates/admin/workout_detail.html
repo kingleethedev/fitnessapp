@@ -1,0 +1,44 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Workout Details{% endblock %}
+
+{% block content %}
+<div style="background: var(--white); padding: 25px; border-radius: 15px;">
+    <h3>Workout Information</h3>
+    <table style="width: 100%; margin-top: 15px;">
+        <tr><td><strong>User:</strong></td><td>{{ workout.user.username }}</td></tr>
+        <tr><td><strong>Date:</strong></td><td>{{ workout.date|date:"Y-m-d" }}</td></tr>
+        <tr><td><strong>Duration:</strong></td><td>{{ workout.duration }} minutes</td></tr>
+        <tr><td><strong>Status:</strong></td><td>{% if workout.is_completed %}Completed{% else %}Pending{% endif %}</td></tr>
+        {% if workout.is_completed %}
+        <tr><td><strong>Completed At:</strong></td><td>{{ workout.completed_at|date:"Y-m-d H:i" }}</td></tr>
+        <tr><td><strong>Calories Burned:</strong></td><td>{{ workout.calories_burned|default:"-" }}</td></tr>
+        {% endif %}
+    </table>
+    
+    <h3 style="margin-top: 20px;">Exercises</h3>
+    <div class="data-table">
+        <table>
+            <thead>
+                <tr><th>Exercise</th><th>Sets/Reps</th><th>Rest</th></tr>
+            </thead>
+            <tbody>
+                {% for exercise in workout.exercises %}
+                <tr>
+                    <td>{{ exercise.name }}</td>
+                    <td>{% if exercise.reps %}{{ exercise.reps }} reps{% elif exercise.duration %}{{ exercise.duration }} sec{% endif %}</td>
+                    <td>{{ exercise.rest|default:"-" }} sec</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3">No exercises found</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <a href="/admin-panel/workouts/" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Workouts
+        </a>
+    </div>
+</div>
+{% endblock %}

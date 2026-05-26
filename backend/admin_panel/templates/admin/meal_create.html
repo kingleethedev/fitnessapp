@@ -1,0 +1,126 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}{% if meal %}Edit Meal{% else %}Create Meal{% endif %}{% endblock %}
+
+{% block content %}
+<div style="background: var(--white); padding: 30px; border-radius: 15px;">
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="form-group">
+                <label>Meal Name *</label>
+                <input type="text" name="name" class="form-control" value="{{ meal.name|default:'' }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Meal Type *</label>
+                <select name="meal_type" class="form-control" required>
+                    <option value="">Select type</option>
+                    {% for value, label in meal_types %}
+                        <option value="{{ value }}" {% if meal.meal_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Calories</label>
+                <input type="number" name="calories" class="form-control" value="{{ meal.calories|default:'' }}" step="10">
+            </div>
+            
+            <div class="form-group">
+                <label>Protein (g)</label>
+                <input type="number" name="protein" class="form-control" value="{{ meal.protein|default:'' }}" step="1">
+            </div>
+            
+            <div class="form-group">
+                <label>Carbs (g)</label>
+                <input type="number" name="carbs" class="form-control" value="{{ meal.carbs|default:'' }}" step="1">
+            </div>
+            
+            <div class="form-group">
+                <label>Fats (g)</label>
+                <input type="number" name="fats" class="form-control" value="{{ meal.fats|default:'' }}" step="1">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" class="form-control" rows="3">{{ meal.description|default:'' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>Ingredients</label>
+            <textarea name="ingredients" class="form-control" rows="4" placeholder="List ingredients, one per line">{{ meal.ingredients|default:'' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>Instructions</label>
+            <textarea name="instructions" class="form-control" rows="6" placeholder="Step by step cooking instructions">{{ meal.instructions|default:'' }}</textarea>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_vegetarian" {% if meal.is_vegetarian %}checked{% endif %}>
+                    Vegetarian
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_vegan" {% if meal.is_vegan %}checked{% endif %}>
+                    Vegan
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_gluten_free" {% if meal.is_gluten_free %}checked{% endif %}>
+                    Gluten Free
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Meal Image</label>
+            <input type="file" name="image" class="form-control" accept="image/*" onchange="previewImage(this)">
+            <div id="image-preview" class="image-preview">
+                {% if meal.image %}
+                    <img src="{{ meal.image.url }}" alt="{{ meal.name }}">
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="is_active" {% if meal.is_active or not meal %}checked{% endif %}>
+                Active (visible to users)
+            </label>
+        </div>
+        
+        <div style="margin-top: 30px; display: flex; gap: 15px;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save Meal
+            </button>
+            <a href="{% url 'admin_meals' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+    function previewImage(input) {
+        const preview = document.getElementById('image-preview');
+        preview.innerHTML = '';
+        
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                preview.appendChild(img);
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+</script>
+{% endblock %}

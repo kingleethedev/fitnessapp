@@ -1,0 +1,58 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Challenges Management{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h3>Active Challenges</h3>
+    <a href="{% url 'admin_challenge_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Create Challenge
+    </a>
+</div>
+
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Target</th>
+                <th>Participants</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="challenges-table-body">
+            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function loadChallenges() {
+        try {
+            const response = await fetch('/dashboard/api/challenges/list/');
+            const data = await response.json();
+            const tbody = document.getElementById('challenges-table-body');
+            tbody.innerHTML = '';
+            
+            if (data.challenges.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No active challenges</td></tr>';
+                return;
+            }
+            
+            data.challenges.forEach(challenge => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${challenge.name}</td>
+                    <td><span class="badge badge-active">${challenge.challenge_type}</span></td>
+                    <td>${challenge.target_value}</td>
+                    <td>${challenge.participants_count || 0}</td>
+                    <td><span class="badge badge-active">Active</span></td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading challenges:', error);
+        }
+    }
+    loadChallenges();
+</script>
+{% endblock %}

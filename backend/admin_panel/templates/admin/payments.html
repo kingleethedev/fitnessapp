@@ -1,0 +1,81 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Payments Management{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card primary">
+        <div class="stat-title">Total Revenue</div>
+        <div class="stat-value" id="total-revenue">$0</div>
+    </div>
+    <div class="stat-card secondary">
+        <div class="stat-title">Active Subscriptions</div>
+        <div class="stat-value" id="active-subscriptions">-</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-title">Success Rate</div>
+        <div class="stat-value" id="success-rate">-</div>
+    </div>
+</div>
+
+<div class="data-table">
+    <h3 style="padding: 15px;">Recent Transactions</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Amount</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="transactions-table-body">
+            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function loadPaymentStats() {
+        try {
+            const response = await fetch('/dashboard/api/payments/stats/');
+            const data = await response.json();
+            document.getElementById('total-revenue').textContent = '$' + (data.total_revenue || 0);
+            document.getElementById('active-subscriptions').textContent = data.active_subscriptions || 0;
+            document.getElementById('success-rate').textContent = (data.success_rate || 0) + '%';
+        } catch (error) {
+            console.error('Error loading payment stats:', error);
+        }
+    }
+    
+    async function loadTransactions() {
+        try {
+            const response = await fetch('/dashboard/api/transactions/list/');
+            const data = await response.json();
+            const tbody = document.getElementById('transactions-table-body');
+            tbody.innerHTML = '';
+            
+            if (data.transactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No transactions</td></tr>';
+                return;
+            }
+            
+            data.transactions.forEach(transaction => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${transaction.user__username || 'Unknown'}</td>
+                    <td><strong>$${transaction.amount}</strong></td>
+                    <td>${transaction.payment_type}</td>
+                    <td><span class="badge badge-active">${transaction.status}</span></td>
+                    <td>${transaction.created_at}</td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+        }
+    }
+    
+    loadPaymentStats();
+    loadTransactions();
+</script>
+{% endblock %}

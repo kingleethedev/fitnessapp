@@ -1,0 +1,89 @@
+﻿# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+**/build/
+/coverage/
+
+# Android
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+android/**/build/
+*.apk
+*.aab
+*.jar
+*.class
+
+# iOS
+ios/build/
+ios/Pods/
+ios/Podfile.lock
+ios/.symlinks/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+*.ipa
+*.app
+
+# Native binaries
+*.so
+*.dll
+*.dylib
+*.exe
+*.dSYM
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+*.sqlite3
+*.db
+
+# Django
+staticfiles/
+static/
+media/
+mediafiles/
+uploads/
+migrations/
+!migrations/__init__.py
+
+# Environment
+.env
+.env.*
+*.log
+
+# Media files
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.gif
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z

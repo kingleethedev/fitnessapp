@@ -1,0 +1,262 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}Edit Exercise: {{ exercise.name }}{% endblock %}
+
+{% block content %}
+<style>
+    .form-container {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--gray-dark);
+    }
+    .form-control {
+        width: 100%;
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+    select.form-control {
+        cursor: pointer;
+    }
+    textarea.form-control {
+        resize: vertical;
+        min-height: 100px;
+    }
+    .help-text {
+        font-size: 12px;
+        color: var(--gray);
+        margin-top: 5px;
+    }
+    .form-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 30px;
+        justify-content: flex-end;
+    }
+    .btn-submit {
+        background: var(--success);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+    }
+    .btn-cancel {
+        background: var(--gray);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .video-preview {
+        margin-top: 10px;
+        padding: 10px;
+        background: var(--gray-light);
+        border-radius: 8px;
+    }
+    .video-preview video {
+        max-width: 100%;
+        border-radius: 8px;
+    }
+    .current-video {
+        padding: 10px;
+        background: #e7f3ff;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    .required-star {
+        color: #dc3545;
+    }
+    .info-box {
+        background: #e7f3ff;
+        border-left: 4px solid #2196F3;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+</style>
+
+<div class="form-container">
+    <h2 style="margin-bottom: 25px;">Edit Exercise: {{ exercise.name }}</h2>
+    
+    <div class="info-box">
+        <i class="fas fa-info-circle"></i>
+        <strong>Video Management:</strong><br>
+        Current video status: 
+        {% if exercise.has_video %}
+            <span style="color: #28a745;">✓ Has video</span>
+        {% else %}
+            <span style="color: #dc3545;">✗ No video</span>
+        {% endif %}
+    </div>
+    
+    <form method="POST" enctype="multipart/form-data" id="edit-exercise-form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label>Exercise Name <span class="required-star">*</span></label>
+            <input type="text" name="name" id="exercise-name" class="form-control" value="{{ exercise.name }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" id="description" class="form-control" rows="3">{{ exercise.description|default:'' }}</textarea>
+            <div class="help-text">Provide instructions on proper form and technique</div>
+        </div>
+        
+        <div class="form-group">
+            <label>Primary Goal</label>
+            <select name="primary_goal" id="primary-goal" class="form-control">
+                <option value="">-- Select Goal --</option>
+                <option value="weight_loss" {% if exercise.primary_goal == 'weight_loss' %}selected{% endif %}>Weight Loss</option>
+                <option value="muscle_gain" {% if exercise.primary_goal == 'muscle_gain' %}selected{% endif %}>Muscle Gain</option>
+                <option value="endurance" {% if exercise.primary_goal == 'endurance' %}selected{% endif %}>Endurance</option>
+                <option value="strength" {% if exercise.primary_goal == 'strength' %}selected{% endif %}>Strength</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Experience Level</label>
+            <select name="experience_level" id="experience-level" class="form-control">
+                <option value="beginner" {% if exercise.experience_level == 'beginner' %}selected{% endif %}>Beginner</option>
+                <option value="intermediate" {% if exercise.experience_level == 'intermediate' %}selected{% endif %}>Intermediate</option>
+                <option value="advanced" {% if exercise.experience_level == 'advanced' %}selected{% endif %}>Advanced</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Training Location</label>
+            <select name="training_location" id="training-location" class="form-control">
+                <option value="home" {% if exercise.training_location == 'home' %}selected{% endif %}>Home</option>
+                <option value="gym" {% if exercise.training_location == 'gym' %}selected{% endif %}>Gym</option>
+                <option value="outdoor" {% if exercise.training_location == 'outdoor' %}selected{% endif %}>Outdoor</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Equipment Needed</label>
+            <input type="text" name="equipment_needed" id="equipment" class="form-control" value="{{ exercise.equipment_needed|default:'' }}">
+            <div class="help-text">Comma-separated list of equipment</div>
+        </div>
+        
+        <div class="form-group">
+            <label>Calories Burned Per Minute</label>
+            <input type="number" name="calories_per_minute" id="calories" class="form-control" step="0.5" value="{{ exercise.calories_per_minute|default:'8.0' }}">
+        </div>
+        
+        {% if exercise.has_video %}
+        <div class="current-video">
+            <strong>Current Video:</strong><br>
+            {% if exercise.video_url %}
+                <a href="{{ exercise.video_url }}" target="_blank">{{ exercise.video_url }}</a>
+            {% elif exercise.video_file %}
+                <video controls width="100%" style="max-height: 200px;">
+                    <source src="{{ exercise.video_file.url }}" type="video/mp4">
+                </video>
+            {% endif %}
+            <div class="help-text" style="margin-top: 5px;">Upload a new video to replace the current one</div>
+        </div>
+        {% endif %}
+        
+        <div class="form-group">
+            <label>Video URL (replace current)</label>
+            <input type="url" name="video_url" id="video-url" class="form-control" placeholder="https://www.youtube.com/watch?v=..." value="{{ exercise.video_url|default:'' }}">
+            <div class="help-text">YouTube, Vimeo, or direct video URL</div>
+        </div>
+        
+        <div class="form-group">
+            <label>OR Upload New Video File</label>
+            <input type="file" name="video_file" id="video-file" class="form-control" accept="video/*" onchange="previewVideo(this)">
+            <div class="help-text">Supported formats: MP4, MOV, AVI, WebM</div>
+        </div>
+        
+        <div id="video-preview" class="video-preview" style="display: none;"></div>
+        
+        <div class="form-group">
+            <label>Thumbnail Image</label>
+            {% if exercise.thumbnail %}
+                <div class="current-video">
+                    <strong>Current Thumbnail:</strong><br>
+                    <img src="{{ exercise.thumbnail.url }}" style="max-width: 150px; border-radius: 8px;">
+                </div>
+            {% endif %}
+            <input type="file" name="thumbnail" id="thumbnail" class="form-control" accept="image/*">
+            <div class="help-text">Upload a new thumbnail image (optional)</div>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="is_active" {% if exercise.is_active %}checked{% endif %}>
+                Active (visible to users)
+            </label>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{% url 'admin_exercise_library' %}" class="btn-cancel">Cancel</a>
+            <button type="submit" class="btn-submit">Save Changes</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function previewVideo(input) {
+        const previewDiv = document.getElementById('video-preview');
+        
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const fileType = file.type;
+            
+            if (fileType.startsWith('video/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewDiv.style.display = 'block';
+                    previewDiv.innerHTML = `
+                        <strong>New Video Preview:</strong><br>
+                        <video controls width="100%" style="max-height: 200px;">
+                            <source src="${e.target.result}" type="${fileType}">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div class="help-text" style="margin-top: 5px;">File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</div>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewDiv.style.display = 'block';
+                previewDiv.innerHTML = '<div class="help-text" style="color: #dc3545;">Please select a valid video file (MP4, MOV, etc.)</div>';
+            }
+        }
+    }
+    
+    document.getElementById('edit-exercise-form').addEventListener('submit', function(e) {
+        const exerciseName = document.getElementById('exercise-name').value;
+        
+        if (!exerciseName) {
+            e.preventDefault();
+            alert('❌ Please enter an exercise name');
+            return false;
+        }
+        
+        return true;
+    });
+</script>
+{% endblock %}

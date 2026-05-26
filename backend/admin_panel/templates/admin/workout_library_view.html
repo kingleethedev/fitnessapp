@@ -1,0 +1,264 @@
+{% extends 'admin/base.html' %}
+{% block page_title %}View Workout: {{ workout.name }}{% endblock %}
+
+{% block content %}
+<style>
+    .workout-container {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    .workout-header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid var(--primary);
+    }
+    .workout-header h1 {
+        color: var(--primary-dark);
+        font-size: 28px;
+        margin-bottom: 10px;
+    }
+    .workout-image {
+        width: 100%;
+        max-height: 300px;
+        object-fit: cover;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    .info-card {
+        background: var(--gray-light);
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+    }
+    .info-card i {
+        font-size: 24px;
+        color: var(--primary);
+        margin-bottom: 8px;
+    }
+    .info-card .label {
+        font-size: 12px;
+        color: var(--gray);
+        margin-bottom: 5px;
+    }
+    .info-card .value {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--primary-dark);
+    }
+    .badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-active {
+        background: #d4edda;
+        color: #155724;
+    }
+    .badge-inactive {
+        background: #e2e3e5;
+        color: #383d41;
+    }
+    .exercise-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    .exercise-table th {
+        background: var(--primary);
+        color: white;
+        padding: 12px;
+        text-align: left;
+    }
+    .exercise-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e0e0e0;
+        vertical-align: middle;
+    }
+    .exercise-table tr:hover {
+        background: var(--gray-light);
+    }
+    .video-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+    }
+    .video-yes {
+        background: #d4edda;
+        color: #155724;
+    }
+    .video-no {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .btn-edit {
+        background: var(--primary);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        margin-top: 20px;
+    }
+    .btn-edit:hover {
+        opacity: 0.9;
+    }
+    .btn-back {
+        background: var(--gray);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        margin-top: 20px;
+        margin-right: 10px;
+    }
+    .description-box {
+        background: var(--gray-light);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+    }
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--primary-dark);
+        margin-bottom: 15px;
+    }
+</style>
+
+<div class="workout-container">
+    <div class="workout-header">
+        <h1>{{ workout.name }}</h1>
+        <span class="badge {% if workout.is_active %}badge-active{% else %}badge-inactive{% endif %}">
+            {{ workout.is_active|yesno:"Active,Inactive" }}
+        </span>
+    </div>
+
+    <!-- Workout Image -->
+    {% if workout.image %}
+    <div style="text-align: center;">
+        {% if 'cloudinary' in workout.image %}
+            <img src="{{ workout.image }}" alt="{{ workout.name }}" class="workout-image">
+        {% else %}
+            <img src="{{ workout.image.url }}" alt="{{ workout.name }}" class="workout-image">
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Info Grid -->
+    <div class="info-grid">
+        <div class="info-card">
+            <i class="fas fa-clock"></i>
+            <div class="label">Duration</div>
+            <div class="value">{{ workout.default_duration }} min</div>
+        </div>
+        <div class="info-card">
+            <i class="fas fa-flag-checkered"></i>
+            <div class="label">Goal</div>
+            <div class="value">{{ workout.goal|default:"General" }}</div>
+        </div>
+        <div class="info-card">
+            <i class="fas fa-chart-line"></i>
+            <div class="label">Experience Level</div>
+            <div class="value">{{ workout.experience_level|title }}</div>
+        </div>
+        <div class="info-card">
+            <i class="fas fa-map-marker-alt"></i>
+            <div class="label">Location</div>
+            <div class="value">{{ workout.training_location|title }}</div>
+        </div>
+    </div>
+
+    <!-- Description -->
+    {% if workout.description %}
+    <div class="description-box">
+        <div class="section-title">Description</div>
+        <p>{{ workout.description }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Exercises Section -->
+    <div class="section-title">
+        Exercises 
+        <span style="font-size: 14px; color: var(--gray);">
+            ({{ workout.exercises|length }} total)
+        </span>
+    </div>
+
+    <table class="exercise-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Exercise Name</th>
+                <th>Sets</th>
+                <th>Reps</th>
+                <th>Duration</th>
+                <th>Rest</th>
+                <th>Video</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for exercise in workout.exercises %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                    <strong>{{ exercise.name }}</strong>
+                    {% if exercise.description %}
+                    <br><small style="color: var(--gray);">{{ exercise.description|truncatechars:50 }}</small>
+                    {% endif %}
+                </td>
+                <td>{{ exercise.sets|default:3 }}</td>
+                <td>{% if exercise.reps %}{{ exercise.reps }}{% else %}-{% endif %}</td>
+                <td>{% if exercise.duration %}{{ exercise.duration }} sec{% else %}-{% endif %}</td>
+                <td>{{ exercise.rest|default:30 }} sec</td>
+                <td>
+                    {% if exercise.has_video %}
+                        <span class="video-badge video-yes">
+                            <i class="fas fa-video"></i> Yes
+                        </span>
+                    {% else %}
+                        <span class="video-badge video-no">
+                            <i class="fas fa-video-slash"></i> No
+                        </span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-dumbbell" style="font-size: 48px; color: var(--gray);"></i>
+                    <p style="margin-top: 10px;">No exercises added to this workout yet.</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Action Buttons -->
+    <div style="margin-top: 30px; text-align: center;">
+        <a href="{% url 'admin_workout_library' %}" class="btn-back">
+            <i class="fas fa-arrow-left"></i> Back to Library
+        </a>
+        <a href="{% url 'admin_workout_library_edit' workout.id %}" class="btn-edit">
+            <i class="fas fa-edit"></i> Edit Workout
+        </a>
+    </div>
+</div>
+{% endblock %}
