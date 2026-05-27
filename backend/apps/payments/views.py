@@ -111,18 +111,26 @@ class PaymentViewSet(viewsets.GenericViewSet):
                 'error': 'User already has an active paid subscription'
             }, status=400)
         
-        # Allow if on trial - they can upgrade anytime (removed trial check)
-        
         # Check if there's already a pending transaction
         existing_pending = PaymentTransaction.objects.filter(
             user=user,
             status='PENDING'
-        ).exists()
+        ).first()
         
         if existing_pending:
-            return Response({
-                'error': 'You already have a pending payment. Please wait or contact support.'
-            }, status=400)
+            # Check if pending payment is stale (older than 30 minutes)
+            time_since_created = timezone.now() - existing_pending.created_at
+            if time_since_created > timedelta(minutes=30):
+                # Old pending payment - delete it and create new one
+                existing_pending.delete()
+                print(f"🗑️ Deleted stale pending transaction for user {user.email}")
+            else:
+                return Response({
+                    'error': 'You already have a pending payment. Please complete or cancel it.',
+                    'pending_payment_id': str(existing_pending.id),
+                    'created_at': existing_pending.created_at,
+                    'created_at_formatted': existing_pending.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                }, status=400)
         
         try:
             # Get plan amount (default $9.99)
@@ -187,6 +195,72 @@ class PaymentViewSet(viewsets.GenericViewSet):
             return Response({'error': str(e)}, status=500)
     
     @action(detail=False, methods=['POST'])
+    def cancel_pending_payment(self, request):
+        """Cancel a pending payment"""
+        user = request.user
+        
+        # Find pending transaction
+        pending = PaymentTransaction.objects.filter(
+            user=user,
+            status='PENDING'
+        ).first()
+        
+        if not pending:
+            return Response({
+                'error': 'No pending payment found',
+                'success': False
+            }, status=400)
+        
+        try:
+            # Mark as failed
+            pending.status = 'FAILED'
+            pending.metadata = {
+                **(pending.metadata or {}),
+                'cancelled_at': str(timezone.now()),
+                'cancelled_by': 'user'
+            }
+            pending.save()
+            
+            print(f"✅ Cancelled pending payment {pending.id} for user {user.email}")
+            
+            return Response({
+                'success': True,
+                'message': 'Pending payment cancelled successfully',
+                'transaction_id': str(pending.id)
+            })
+            
+        except Exception as e:
+            print(f"❌ Error cancelling pending payment: {e}")
+            return Response({
+                'error': f'Failed to cancel payment: {str(e)}',
+                'success': False
+            }, status=500)
+    
+    @action(detail=False, methods=['GET'])
+    def get_pending_payment(self, request):
+        """Get pending payment status"""
+        user = request.user
+        
+        pending = PaymentTransaction.objects.filter(
+            user=user,
+            status='PENDING'
+        ).first()
+        
+        if pending:
+            return Response({
+                'has_pending': True,
+                'payment_id': str(pending.id),
+                'amount': str(pending.amount),
+                'created_at': pending.created_at,
+                'created_at_formatted': pending.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                'is_stale': (timezone.now() - pending.created_at) > timedelta(minutes=30)
+            })
+        
+        return Response({
+            'has_pending': False
+        })
+    
+    @action(detail=False, methods=['POST'])
     def execute_payment(self, request):
         """Execute PayPal payment after user approval"""
         payment_id = request.data.get('payment_id')
@@ -245,7 +319,21 @@ class PaymentViewSet(viewsets.GenericViewSet):
                 'error': 'User already has an active subscription'
             }, status=400)
         
-        # Allow if on trial - they can upgrade anytime (removed trial check)
+        # Check if there's already a pending transaction
+        existing_pending = PaymentTransaction.objects.filter(
+            user=user,
+            status='PENDING'
+        ).first()
+        
+        if existing_pending:
+            time_since_created = timezone.now() - existing_pending.created_at
+            if time_since_created > timedelta(minutes=30):
+                existing_pending.delete()
+            else:
+                return Response({
+                    'error': 'You already have a pending payment. Please complete or cancel it.',
+                    'pending_payment_id': str(existing_pending.id)
+                }, status=400)
         
         try:
             # Get plan
