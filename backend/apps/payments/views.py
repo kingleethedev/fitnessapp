@@ -79,11 +79,13 @@ class PaymentViewSet(viewsets.GenericViewSet):
         """Create a PayPal Payment for subscription"""
         user = request.user
         
-        # Check if user already has active subscription or trial
-        if user.is_subscription_active or user.is_trial_active():
+        # FIXED: Allow upgrades during trial - only block if already has PAID subscription
+        if user.is_subscription_active:
             return Response({
-                'error': 'User already has an active subscription or trial'
+                'error': 'User already has an active paid subscription'
             }, status=400)
+        
+        # Allow if on trial - they can upgrade anytime (removed trial check)
         
         # Check if there's already a pending transaction
         existing_pending = PaymentTransaction.objects.filter(
@@ -131,7 +133,8 @@ class PaymentViewSet(viewsets.GenericViewSet):
                     paypal_payment_id=payment.id,
                     metadata={
                         'plan_name': plan.name if plan else 'Premium Plan',
-                        'payment_id': payment.id
+                        'payment_id': payment.id,
+                        'upgrading_from_trial': user.is_trial_active()  # Track upgrade
                     }
                 )
                 
@@ -198,11 +201,13 @@ class PaymentViewSet(viewsets.GenericViewSet):
         """Create a PayPal subscription"""
         user = request.user
         
-        # Check if user already has active subscription or trial
-        if user.is_subscription_active or user.is_trial_active():
+        # FIXED: Allow upgrades during trial - only block if already has PAID subscription
+        if user.is_subscription_active:
             return Response({
-                'error': 'User already has an active subscription or trial'
+                'error': 'User already has an active subscription'
             }, status=400)
+        
+        # Allow if on trial - they can upgrade anytime (removed trial check)
         
         try:
             # Get plan
@@ -241,7 +246,8 @@ class PaymentViewSet(viewsets.GenericViewSet):
                     paypal_subscription_id=subscription.id,
                     metadata={
                         'plan_name': plan.name,
-                        'subscription_id': subscription.id
+                        'subscription_id': subscription.id,
+                        'upgrading_from_trial': user.is_trial_active()  # Track upgrade
                     }
                 )
                 
@@ -290,6 +296,10 @@ class PaymentViewSet(viewsets.GenericViewSet):
             user.is_subscription_active = True
             if not user.subscription_end_date or user.subscription_end_date < timezone.now():
                 user.subscription_end_date = timezone.now() + timedelta(days=30)
+            # Clear trial if user upgraded
+            if user.is_trial_active():
+                user.trial_end_date = None
+                user.trial_start_date = None
             user.save()
         
         # Force refresh from PayPal if needed
@@ -426,12 +436,19 @@ def handle_payment_success(resource):
                     )
                     print(f"✅ Created new transaction {transaction.id} as SUCCEEDED")
                 
-                # Activate subscription
+                # Activate subscription and clear trial if upgrading
                 if not user.is_subscription_active:
                     user.is_subscription_active = True
                     user.subscription_end_date = timezone.now() + timedelta(days=30)
                     user.save()
                     print(f"✅ Subscription activated for user {user.email}")
+                    
+                    # FIXED: Clear trial dates if user was on trial (upgrade scenario)
+                    if user.is_trial_active():
+                        print(f"🔄 User {user.email} upgraded from trial to paid - clearing trial dates")
+                        user.trial_end_date = None
+                        user.trial_start_date = None
+                        user.save()
                 else:
                     print(f"⚠️ User {user.email} already had active subscription")
                 
@@ -468,11 +485,17 @@ def handle_subscription_activated(resource):
         
         user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
         if user:
+            was_on_trial = user.is_trial_active()
             user.is_subscription_active = True
             if resource.get('billing_info', {}).get('next_billing_time'):
                 user.subscription_end_date = resource['billing_info']['next_billing_time']
+            # Clear trial if user was on trial
+            if was_on_trial:
+                user.trial_end_date = None
+                user.trial_start_date = None
             user.save()
-            print(f"✅ Activated subscription for user {user.email}")
+            print(f"✅ Activated subscription for user {user.email}" + 
+                  (" (upgraded from trial)" if was_on_trial else ""))
             
     except Exception as e:
         print(f"❌ Error handling subscription activation: {e}")
