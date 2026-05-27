@@ -14,6 +14,7 @@ from .serializers import SubscriptionPlanSerializer
 from .paypal_service import PayPalService
 from apps.accounts.models import User
 import json
+import traceback
 
 # Configure PayPal
 paypalrestsdk.configure({
@@ -29,17 +30,42 @@ class PaymentViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['GET'])
     def plan(self, request):
         """Get the subscription plan"""
-        plan = SubscriptionPlan.objects.filter(is_active=True).first()
-        if plan:
-            serializer = SubscriptionPlanSerializer(plan)
-            return Response(serializer.data)
-        # Return default plan if none exists in DB
-        return Response({
-            'name': 'Premium Plan',
-            'amount': '9.99',
-            'currency': 'USD',
-            'interval': 'month'
-        })
+        try:
+            # Try to get the plan from database
+            plan = SubscriptionPlan.objects.filter(is_active=True).first()
+            
+            if plan:
+                # Return plan data
+                return Response({
+                    'name': plan.name,
+                    'amount': str(plan.amount),
+                    'currency': 'USD',
+                    'interval': plan.interval,
+                    'id': str(plan.id),
+                    'is_active': plan.is_active,
+                    'paypal_plan_id': plan.paypal_plan_id
+                })
+            
+            # Return default plan if none exists in DB
+            return Response({
+                'name': 'Premium Plan',
+                'amount': '9.99',
+                'currency': 'USD',
+                'interval': 'month'
+            })
+            
+        except Exception as e:
+            # Log the error for debugging
+            print(f"❌ Error in plan endpoint: {e}")
+            traceback.print_exc()
+            
+            # Always return a fallback plan instead of crashing
+            return Response({
+                'name': 'Premium Plan',
+                'amount': '9.99',
+                'currency': 'USD',
+                'interval': 'month'
+            })
     
     @action(detail=False, methods=['GET'])
     def check_trial_eligibility(self, request):
@@ -151,10 +177,13 @@ class PaymentViewSet(viewsets.GenericViewSet):
                     'transaction_id': str(transaction.id)
                 })
             else:
-                return Response({'error': payment.error}, status=500)
+                error_msg = str(payment.error) if payment.error else 'Payment creation failed'
+                print(f"PayPal payment creation error: {error_msg}")
+                return Response({'error': error_msg}, status=500)
             
         except Exception as e:
             print(f"Error creating PayPal payment: {e}")
+            traceback.print_exc()
             return Response({'error': str(e)}, status=500)
     
     @action(detail=False, methods=['POST'])
@@ -182,6 +211,12 @@ class PaymentViewSet(viewsets.GenericViewSet):
                         transaction.status = 'SUCCEEDED'
                         transaction.save()
                     
+                    # Clear trial if user upgraded
+                    if request.user.is_trial_active():
+                        request.user.trial_end_date = None
+                        request.user.trial_start_date = None
+                        request.user.save()
+                    
                     return Response({
                         'success': True,
                         'has_access': request.user.has_access(),
@@ -191,9 +226,12 @@ class PaymentViewSet(viewsets.GenericViewSet):
                 else:
                     return Response({'error': 'Failed to update subscription'}, status=500)
             else:
-                return Response({'error': payment.error}, status=400)
+                error_msg = str(payment.error) if payment.error else 'Payment execution failed'
+                return Response({'error': error_msg}, status=400)
                 
         except Exception as e:
+            print(f"Error executing payment: {e}")
+            traceback.print_exc()
             return Response({'error': str(e)}, status=500)
     
     @action(detail=False, methods=['POST'])
@@ -213,7 +251,7 @@ class PaymentViewSet(viewsets.GenericViewSet):
             # Get plan
             plan = SubscriptionPlan.objects.filter(is_active=True).first()
             if not plan or not plan.paypal_plan_id:
-                return Response({'error': 'Subscription plan not configured'}, status=500)
+                return Response({'error': 'Subscription plan not configured. Please contact support.'}, status=500)
             
             # Create subscription
             subscription = paypalrestsdk.Subscription({
@@ -263,10 +301,13 @@ class PaymentViewSet(viewsets.GenericViewSet):
                     'approval_url': approval_url
                 })
             else:
-                return Response({'error': subscription.error}, status=500)
+                error_msg = str(subscription.error) if subscription.error else 'Subscription creation failed'
+                print(f"PayPal subscription creation error: {error_msg}")
+                return Response({'error': error_msg}, status=500)
                 
         except Exception as e:
             print(f"Error creating PayPal subscription: {e}")
+            traceback.print_exc()
             return Response({'error': str(e)}, status=500)
     
     @action(detail=False, methods=['POST'])
@@ -274,8 +315,8 @@ class PaymentViewSet(viewsets.GenericViewSet):
         """Cancel subscription"""
         result = PayPalService.cancel_subscription(request.user)
         if result:
-            return Response({'message': 'Subscription cancelled'})
-        return Response({'error': 'No active subscription'}, status=400)
+            return Response({'message': 'Subscription cancelled successfully'})
+        return Response({'error': 'No active subscription found'}, status=400)
     
     @action(detail=False, methods=['GET'])
     def status(self, request):
@@ -332,19 +373,23 @@ class PaymentViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['GET'])
     def payment_history(self, request):
         """Get payment history"""
-        transactions = PaymentTransaction.objects.filter(user=request.user).order_by('-created_at')
-        return Response({
-            'transactions': [
-                {
-                    'id': str(t.id),
-                    'amount': str(t.amount),
-                    'status': t.status,
-                    'payment_type': t.payment_type,
-                    'created_at': t.created_at,
-                    'metadata': t.metadata
-                } for t in transactions
-            ]
-        })
+        try:
+            transactions = PaymentTransaction.objects.filter(user=request.user).order_by('-created_at')
+            return Response({
+                'transactions': [
+                    {
+                        'id': str(t.id),
+                        'amount': str(t.amount),
+                        'status': t.status,
+                        'payment_type': t.payment_type,
+                        'created_at': t.created_at.isoformat() if t.created_at else None,
+                        'metadata': t.metadata
+                    } for t in transactions
+                ]
+            })
+        except Exception as e:
+            print(f"Error getting payment history: {e}")
+            return Response({'transactions': []}, status=200)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -443,7 +488,7 @@ def handle_payment_success(resource):
                     user.save()
                     print(f"✅ Subscription activated for user {user.email}")
                     
-                    # FIXED: Clear trial dates if user was on trial (upgrade scenario)
+                    # Clear trial dates if user was on trial (upgrade scenario)
                     if user.is_trial_active():
                         print(f"🔄 User {user.email} upgraded from trial to paid - clearing trial dates")
                         user.trial_end_date = None
@@ -459,7 +504,6 @@ def handle_payment_success(resource):
             
     except Exception as e:
         print(f"❌ Error handling payment success: {e}")
-        import traceback
         traceback.print_exc()
 
 
@@ -499,6 +543,7 @@ def handle_subscription_activated(resource):
             
     except Exception as e:
         print(f"❌ Error handling subscription activation: {e}")
+        traceback.print_exc()
 
 
 def handle_subscription_cancelled(resource):
@@ -515,6 +560,7 @@ def handle_subscription_cancelled(resource):
             
     except Exception as e:
         print(f"❌ Error handling subscription cancel: {e}")
+        traceback.print_exc()
 
 
 def handle_subscription_suspended(resource):
@@ -530,6 +576,7 @@ def handle_subscription_suspended(resource):
             
     except Exception as e:
         print(f"❌ Error handling subscription suspension: {e}")
+        traceback.print_exc()
 
 
 def handle_subscription_expired(resource):
@@ -546,6 +593,7 @@ def handle_subscription_expired(resource):
             
     except Exception as e:
         print(f"❌ Error handling subscription expiry: {e}")
+        traceback.print_exc()
 
 
 def handle_subscription_renewed(resource):
@@ -563,3 +611,4 @@ def handle_subscription_renewed(resource):
             
     except Exception as e:
         print(f"❌ Error handling subscription renewal: {e}")
+        traceback.print_exc()
