@@ -15,10 +15,14 @@ from .paypal_service import PayPalService
 from apps.accounts.models import User
 import json
 import traceback
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Configure PayPal
 paypalrestsdk.configure({
-    "mode": settings.PAYPAL_MODE,  # sandbox or live
+    "mode": settings.PAYPAL_MODE,
     "client_id": settings.PAYPAL_CLIENT_ID,
     "client_secret": settings.PAYPAL_CLIENT_SECRET
 })
@@ -31,11 +35,9 @@ class PaymentViewSet(viewsets.GenericViewSet):
     def plan(self, request):
         """Get the subscription plan"""
         try:
-            # Try to get the plan from database
             plan = SubscriptionPlan.objects.filter(is_active=True).first()
             
             if plan:
-                # Return plan data
                 return Response({
                     'name': plan.name,
                     'amount': str(plan.amount),
@@ -46,7 +48,6 @@ class PaymentViewSet(viewsets.GenericViewSet):
                     'paypal_plan_id': plan.paypal_plan_id
                 })
             
-            # Return default plan if none exists in DB
             return Response({
                 'name': 'Premium Plan',
                 'amount': '9.99',
@@ -55,11 +56,8 @@ class PaymentViewSet(viewsets.GenericViewSet):
             })
             
         except Exception as e:
-            # Log the error for debugging
             print(f"❌ Error in plan endpoint: {e}")
             traceback.print_exc()
-            
-            # Always return a fallback plan instead of crashing
             return Response({
                 'name': 'Premium Plan',
                 'amount': '9.99',
@@ -85,15 +83,12 @@ class PaymentViewSet(viewsets.GenericViewSet):
         """Start 7-day free trial"""
         user = request.user
         
-        # Check if user already used trial
         if user.has_used_trial:
             return Response({'error': 'Trial already used'}, status=400)
         
-        # Check if trial is already active
         if user.is_trial_active():
             return Response({'error': 'Trial already active'}, status=400)
         
-        # Check if user already has active subscription
         if user.is_subscription_active:
             return Response({'error': 'User already has active subscription'}, status=400)
         
@@ -103,28 +98,38 @@ class PaymentViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['POST'])
     def create_payment(self, request):
         """Create a PayPal Payment for subscription"""
-        user = request.user
+        print("\n" + "="*60)
+        print("💰 CREATE PAYMENT REQUEST RECEIVED")
+        print("="*60)
         
-        # FIXED: Allow upgrades during trial - only block if already has PAID subscription
+        user = request.user
+        print(f"👤 User: {user.email} (ID: {user.id})")
+        print(f"📊 User status - Subscribed: {user.is_subscription_active}, Trial active: {user.is_trial_active()}")
+        
+        # Check if user already has active paid subscription
         if user.is_subscription_active:
+            print("❌ User already has active subscription - blocking")
             return Response({
                 'error': 'User already has an active paid subscription'
             }, status=400)
         
-        # Check if there's already a pending transaction
+        # Check for existing pending transaction
         existing_pending = PaymentTransaction.objects.filter(
             user=user,
             status='PENDING'
         ).first()
         
         if existing_pending:
-            # Check if pending payment is stale (older than 30 minutes)
+            print(f"⚠️ Found existing pending transaction: {existing_pending.id}")
+            print(f"   Created at: {existing_pending.created_at}")
             time_since_created = timezone.now() - existing_pending.created_at
+            print(f"   Time since creation: {time_since_created.total_seconds()} seconds")
+            
             if time_since_created > timedelta(minutes=30):
-                # Old pending payment - delete it and create new one
+                print("🗑️ Pending transaction is stale (>30 mins) - deleting")
                 existing_pending.delete()
-                print(f"🗑️ Deleted stale pending transaction for user {user.email}")
             else:
+                print("❌ Returning pending payment error to client")
                 return Response({
                     'error': 'You already have a pending payment. Please complete or cancel it.',
                     'pending_payment_id': str(existing_pending.id),
@@ -133,12 +138,14 @@ class PaymentViewSet(viewsets.GenericViewSet):
                 }, status=400)
         
         try:
-            # Get plan amount (default $9.99)
+            # Get plan amount
             plan = SubscriptionPlan.objects.filter(is_active=True).first()
             amount = str(plan.amount) if plan else '9.99'
+            print(f"💰 Plan amount: ${amount}")
             
-            # Create a PayPal payment
-            payment = paypalrestsdk.Payment({
+            # Create PayPal payment
+            print("🔄 Creating PayPal payment...")
+            payment_data = {
                 "intent": "sale",
                 "payer": {
                     "payment_method": "paypal"
@@ -153,12 +160,19 @@ class PaymentViewSet(viewsets.GenericViewSet):
                         "currency": "USD"
                     },
                     "description": f'Monthly subscription for {user.email}',
-                    "custom": str(user.id)  # Store user ID for webhook reference
+                    "custom": str(user.id)
                 }]
-            })
+            }
+            
+            print(f"📤 PayPal payment data: {json.dumps(payment_data, indent=2)}")
+            
+            payment = paypalrestsdk.Payment(payment_data)
             
             if payment.create():
-                # Create a pending transaction record
+                print("✅ PayPal payment created successfully!")
+                print(f"   Payment ID: {payment.id}")
+                
+                # Create pending transaction record
                 transaction = PaymentTransaction.objects.create(
                     user=user,
                     amount=float(amount),
@@ -168,30 +182,35 @@ class PaymentViewSet(viewsets.GenericViewSet):
                     metadata={
                         'plan_name': plan.name if plan else 'Premium Plan',
                         'payment_id': payment.id,
-                        'upgrading_from_trial': user.is_trial_active()  # Track upgrade
+                        'upgrading_from_trial': user.is_trial_active()
                     }
                 )
+                print(f"📝 Created pending transaction record: {transaction.id}")
                 
                 # Find approval URL
                 approval_url = None
                 for link in payment.links:
+                    print(f"🔗 Link: {link.rel} -> {link.href}")
                     if link.rel == "approval_url":
                         approval_url = link.href
-                        break
+                        print(f"✅ Found approval URL: {approval_url}")
                 
+                print("="*60)
                 return Response({
                     'payment_id': payment.id,
                     'approval_url': approval_url,
                     'transaction_id': str(transaction.id)
                 })
             else:
+                print("❌ PayPal payment creation FAILED!")
+                print(f"   Error: {payment.error}")
                 error_msg = str(payment.error) if payment.error else 'Payment creation failed'
-                print(f"PayPal payment creation error: {error_msg}")
                 return Response({'error': error_msg}, status=500)
             
         except Exception as e:
-            print(f"Error creating PayPal payment: {e}")
+            print(f"❌ Exception in create_payment: {e}")
             traceback.print_exc()
+            print("="*60)
             return Response({'error': str(e)}, status=500)
     
     @action(detail=False, methods=['POST'])
@@ -199,20 +218,27 @@ class PaymentViewSet(viewsets.GenericViewSet):
         """Cancel a pending payment"""
         user = request.user
         
-        # Find pending transaction
+        print("\n" + "="*60)
+        print("🗑️ CANCEL PENDING PAYMENT REQUEST")
+        print("="*60)
+        print(f"👤 User: {user.email}")
+        
         pending = PaymentTransaction.objects.filter(
             user=user,
             status='PENDING'
         ).first()
         
         if not pending:
+            print("❌ No pending payment found")
             return Response({
                 'error': 'No pending payment found',
                 'success': False
             }, status=400)
         
         try:
-            # Mark as failed
+            print(f"📝 Found pending transaction: {pending.id}")
+            print(f"   PayPal payment ID: {pending.paypal_payment_id}")
+            
             pending.status = 'FAILED'
             pending.metadata = {
                 **(pending.metadata or {}),
@@ -221,7 +247,8 @@ class PaymentViewSet(viewsets.GenericViewSet):
             }
             pending.save()
             
-            print(f"✅ Cancelled pending payment {pending.id} for user {user.email}")
+            print(f"✅ Cancelled pending payment {pending.id}")
+            print("="*60)
             
             return Response({
                 'success': True,
@@ -231,6 +258,7 @@ class PaymentViewSet(viewsets.GenericViewSet):
             
         except Exception as e:
             print(f"❌ Error cancelling pending payment: {e}")
+            print("="*60)
             return Response({
                 'error': f'Failed to cancel payment: {str(e)}',
                 'success': False
@@ -240,6 +268,7 @@ class PaymentViewSet(viewsets.GenericViewSet):
     def get_pending_payment(self, request):
         """Get pending payment status"""
         user = request.user
+        print(f"🔍 Checking pending payment for user: {user.email}")
         
         pending = PaymentTransaction.objects.filter(
             user=user,
@@ -247,18 +276,19 @@ class PaymentViewSet(viewsets.GenericViewSet):
         ).first()
         
         if pending:
+            is_stale = (timezone.now() - pending.created_at) > timedelta(minutes=30)
+            print(f"📝 Found pending payment: {pending.id}, Stale: {is_stale}")
             return Response({
                 'has_pending': True,
                 'payment_id': str(pending.id),
                 'amount': str(pending.amount),
                 'created_at': pending.created_at,
                 'created_at_formatted': pending.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                'is_stale': (timezone.now() - pending.created_at) > timedelta(minutes=30)
+                'is_stale': is_stale
             })
         
-        return Response({
-            'has_pending': False
-        })
+        print("✅ No pending payment found")
+        return Response({'has_pending': False})
     
     @action(detail=False, methods=['POST'])
     def execute_payment(self, request):
@@ -266,31 +296,44 @@ class PaymentViewSet(viewsets.GenericViewSet):
         payment_id = request.data.get('payment_id')
         payer_id = request.data.get('payer_id')
         
+        print("\n" + "="*60)
+        print("💳 EXECUTE PAYMENT REQUEST")
+        print("="*60)
+        print(f"Payment ID: {payment_id}")
+        print(f"Payer ID: {payer_id}")
+        
         if not payment_id or not payer_id:
+            print("❌ Missing payment_id or payer_id")
             return Response({'error': 'Payment ID and Payer ID required'}, status=400)
         
         try:
+            print("🔄 Finding PayPal payment...")
             payment = paypalrestsdk.Payment.find(payment_id)
+            print(f"✅ Found payment: {payment.id}, Status: {payment.state}")
             
+            print("🔄 Executing payment...")
             if payment.execute({"payer_id": payer_id}):
-                # Payment successful
+                print("✅ Payment executed successfully!")
+                print(f"   New status: {payment.state}")
+                
                 success = PayPalService.handle_successful_payment(payment, request.user)
                 
                 if success:
-                    # Update transaction
                     transaction = PaymentTransaction.objects.filter(
                         paypal_payment_id=payment_id
                     ).first()
                     if transaction:
                         transaction.status = 'SUCCEEDED'
                         transaction.save()
+                        print(f"✅ Updated transaction {transaction.id} to SUCCEEDED")
                     
-                    # Clear trial if user upgraded
                     if request.user.is_trial_active():
                         request.user.trial_end_date = None
                         request.user.trial_start_date = None
                         request.user.save()
+                        print("✅ Cleared trial dates (user upgraded from trial)")
                     
+                    print("="*60)
                     return Response({
                         'success': True,
                         'has_access': request.user.has_access(),
@@ -298,14 +341,17 @@ class PaymentViewSet(viewsets.GenericViewSet):
                         'message': 'Payment confirmed and subscription activated'
                     })
                 else:
+                    print("❌ Failed to update subscription in database")
                     return Response({'error': 'Failed to update subscription'}, status=500)
             else:
+                print(f"❌ Payment execution failed: {payment.error}")
                 error_msg = str(payment.error) if payment.error else 'Payment execution failed'
                 return Response({'error': error_msg}, status=400)
                 
         except Exception as e:
-            print(f"Error executing payment: {e}")
+            print(f"❌ Error executing payment: {e}")
             traceback.print_exc()
+            print("="*60)
             return Response({'error': str(e)}, status=500)
     
     @action(detail=False, methods=['POST'])
@@ -313,13 +359,15 @@ class PaymentViewSet(viewsets.GenericViewSet):
         """Create a PayPal subscription"""
         user = request.user
         
-        # FIXED: Allow upgrades during trial - only block if already has PAID subscription
-        if user.is_subscription_active:
-            return Response({
-                'error': 'User already has an active subscription'
-            }, status=400)
+        print("\n" + "="*60)
+        print("🔄 CREATE SUBSCRIPTION REQUEST")
+        print("="*60)
+        print(f"👤 User: {user.email}")
         
-        # Check if there's already a pending transaction
+        if user.is_subscription_active:
+            print("❌ User already has active subscription")
+            return Response({'error': 'User already has an active subscription'}, status=400)
+        
         existing_pending = PaymentTransaction.objects.filter(
             user=user,
             status='PENDING'
@@ -328,21 +376,24 @@ class PaymentViewSet(viewsets.GenericViewSet):
         if existing_pending:
             time_since_created = timezone.now() - existing_pending.created_at
             if time_since_created > timedelta(minutes=30):
+                print("🗑️ Deleting stale pending transaction")
                 existing_pending.delete()
             else:
+                print("❌ Returning pending payment error")
                 return Response({
                     'error': 'You already have a pending payment. Please complete or cancel it.',
                     'pending_payment_id': str(existing_pending.id)
                 }, status=400)
         
         try:
-            # Get plan
             plan = SubscriptionPlan.objects.filter(is_active=True).first()
             if not plan or not plan.paypal_plan_id:
+                print("❌ Subscription plan not configured")
                 return Response({'error': 'Subscription plan not configured. Please contact support.'}, status=500)
             
-            # Create subscription
-            subscription = paypalrestsdk.Subscription({
+            print(f"📋 Using plan: {plan.name}, ID: {plan.paypal_plan_id}")
+            
+            subscription_data = {
                 "plan_id": plan.paypal_plan_id,
                 "application_context": {
                     "brand_name": "Fitness App",
@@ -356,14 +407,17 @@ class PaymentViewSet(viewsets.GenericViewSet):
                     "return_url": f"{settings.FRONTEND_URL}/subscription/success",
                     "cancel_url": f"{settings.FRONTEND_URL}/subscription/cancel"
                 }
-            })
+            }
+            
+            subscription = paypalrestsdk.Subscription(subscription_data)
             
             if subscription.create():
-                # Store subscription ID
+                print(f"✅ Subscription created: {subscription.id}")
+                
                 user.paypal_subscription_id = subscription.id
                 user.save()
+                print(f"📝 Saved subscription ID to user")
                 
-                # Create pending transaction
                 PaymentTransaction.objects.create(
                     user=user,
                     amount=float(plan.amount),
@@ -373,29 +427,32 @@ class PaymentViewSet(viewsets.GenericViewSet):
                     metadata={
                         'plan_name': plan.name,
                         'subscription_id': subscription.id,
-                        'upgrading_from_trial': user.is_trial_active()  # Track upgrade
+                        'upgrading_from_trial': user.is_trial_active()
                     }
                 )
+                print("📝 Created pending transaction record")
                 
-                # Find approval URL
                 approval_url = None
                 for link in subscription.links:
                     if link.rel == "approve":
                         approval_url = link.href
+                        print(f"🔗 Approval URL found: {approval_url}")
                         break
                 
+                print("="*60)
                 return Response({
                     'subscription_id': subscription.id,
                     'approval_url': approval_url
                 })
             else:
+                print(f"❌ Subscription creation failed: {subscription.error}")
                 error_msg = str(subscription.error) if subscription.error else 'Subscription creation failed'
-                print(f"PayPal subscription creation error: {error_msg}")
                 return Response({'error': error_msg}, status=500)
                 
         except Exception as e:
-            print(f"Error creating PayPal subscription: {e}")
+            print(f"❌ Error creating subscription: {e}")
             traceback.print_exc()
+            print("="*60)
             return Response({'error': str(e)}, status=500)
     
     @action(detail=False, methods=['POST'])
@@ -411,8 +468,11 @@ class PaymentViewSet(viewsets.GenericViewSet):
         """Get subscription/trial status"""
         user = request.user
         
-        # CRITICAL FIX: Check for successful payments that might not have updated the user
-        # This handles cases where webhook might have failed
+        print(f"🔍 STATUS CHECK - User: {user.email}")
+        print(f"   is_subscription_active: {user.is_subscription_active}")
+        print(f"   is_trial_active: {user.is_trial_active()}")
+        print(f"   has_used_trial: {user.has_used_trial}")
+        
         successful_pending = PaymentTransaction.objects.filter(
             user=user,
             status='SUCCEEDED',
@@ -420,30 +480,26 @@ class PaymentViewSet(viewsets.GenericViewSet):
         ).exists()
         
         if successful_pending and not user.is_subscription_active:
-            print(f"⚠️ Found successful transaction but user not subscribed - fixing for user {user.email}")
-            # Activate subscription for user
+            print("⚠️ Found successful transaction but user not subscribed - fixing")
             user.is_subscription_active = True
             if not user.subscription_end_date or user.subscription_end_date < timezone.now():
                 user.subscription_end_date = timezone.now() + timedelta(days=30)
-            # Clear trial if user upgraded
             if user.is_trial_active():
                 user.trial_end_date = None
                 user.trial_start_date = None
             user.save()
+            print("✅ Fixed subscription status")
         
-        # Force refresh from PayPal if needed
         if user.paypal_subscription_id and user.is_subscription_active:
-            # Check subscription status with PayPal
             try:
                 subscription = paypalrestsdk.Subscription.find(user.paypal_subscription_id)
+                print(f"📡 PayPal subscription status: {subscription.status}")
                 if subscription.status == 'ACTIVE':
-                    # Update local status
                     if subscription.billing_info and subscription.billing_info.next_billing_time:
                         user.subscription_end_date = subscription.billing_info.next_billing_time
                     user.is_subscription_active = True
                     user.save()
                 else:
-                    # No active subscription found
                     user.is_subscription_active = False
                     user.save()
             except Exception as e:
@@ -486,24 +542,22 @@ class PayPalWebhookView(viewsets.ViewSet):
     permission_classes = [AllowAny]
     
     def create(self, request):
+        print("\n" + "="*60)
+        print("📨 WEBHOOK RECEIVED")
+        print("="*60)
+        
         payload = request.body
-        webhook_id = settings.PAYPAL_WEBHOOK_ID
+        print(f"📦 Payload length: {len(payload)} bytes")
         
         try:
-            # Verify webhook signature (implement proper verification)
-            headers = request.META
             event = json.loads(payload)
-            
-            # For production, implement signature verification:
-            # https://developer.paypal.com/docs/api-basics/notifications/verify-webhook-signature/
-            
-            print(f"📨 Received PayPal webhook event: {event.get('event_type')}")
+            print(f"📋 Event type: {event.get('event_type')}")
+            print(f"📋 Event ID: {event.get('id')}")
             
         except Exception as e:
-            print(f"Error parsing webhook: {e}")
+            print(f"❌ Error parsing webhook: {e}")
             return HttpResponse(status=400)
         
-        # Handle different event types
         event_handlers = {
             'PAYMENT.SALE.COMPLETED': handle_payment_success,
             'PAYMENT.SALE.DENIED': handle_payment_failure,
@@ -517,186 +571,140 @@ class PayPalWebhookView(viewsets.ViewSet):
         
         handler = event_handlers.get(event.get('event_type'))
         if handler:
+            print("🔄 Processing with handler...")
             handler(event.get('resource', {}))
         else:
             print(f"⚠️ Unhandled event type: {event.get('event_type')}")
         
+        print("="*60)
         return HttpResponse(status=200)
 
 
 def handle_payment_success(resource):
     """Handle successful payment"""
-    try:
-        print(f"💰 Payment succeeded: {resource.get('id')}")
-        
-        # Get custom field which contains user_id
-        custom = resource.get('custom', '')
-        user_id = custom if custom else None
-        
-        if user_id:
-            try:
-                user = User.objects.get(id=user_id)
-                
-                # Update transaction
-                transaction = PaymentTransaction.objects.filter(
-                    paypal_payment_id=resource.get('id')
-                ).first()
-                
-                if not transaction:
-                    transaction = PaymentTransaction.objects.filter(
-                        user=user,
-                        status='PENDING'
-                    ).first()
-                
-                if transaction:
-                    transaction.status = 'SUCCEEDED'
-                    transaction.paypal_payment_id = resource.get('id')
-                    transaction.save()
-                    print(f"✅ Updated transaction {transaction.id} to SUCCEEDED")
-                else:
-                    # Create transaction if it doesn't exist
-                    amount = float(resource.get('amount', {}).get('total', 9.99))
-                    transaction = PaymentTransaction.objects.create(
-                        user=user,
-                        amount=amount,
-                        status='SUCCEEDED',
-                        payment_type='SUBSCRIPTION',
-                        paypal_payment_id=resource.get('id'),
-                        metadata={
-                            'payment_id': resource.get('id'),
-                            'webhook_created': True
-                        }
-                    )
-                    print(f"✅ Created new transaction {transaction.id} as SUCCEEDED")
-                
-                # Activate subscription and clear trial if upgrading
-                if not user.is_subscription_active:
-                    user.is_subscription_active = True
-                    user.subscription_end_date = timezone.now() + timedelta(days=30)
-                    user.save()
-                    print(f"✅ Subscription activated for user {user.email}")
-                    
-                    # Clear trial dates if user was on trial (upgrade scenario)
-                    if user.is_trial_active():
-                        print(f"🔄 User {user.email} upgraded from trial to paid - clearing trial dates")
-                        user.trial_end_date = None
-                        user.trial_start_date = None
-                        user.save()
-                else:
-                    print(f"⚠️ User {user.email} already had active subscription")
-                
-            except User.DoesNotExist:
-                print(f"❌ User not found for ID: {user_id}")
-        else:
-            print("⚠️ No user_id in payment custom field")
+    print("\n" + "="*40)
+    print("💰 PAYMENT.SALE.COMPLETED")
+    print("="*40)
+    print(f"Payment ID: {resource.get('id')}")
+    print(f"State: {resource.get('state')}")
+    
+    custom = resource.get('custom', '')
+    user_id = custom if custom else None
+    print(f"Custom field (user_id): {user_id}")
+    
+    if user_id:
+        try:
+            user = User.objects.get(id=user_id)
+            print(f"✅ Found user: {user.email}")
             
-    except Exception as e:
-        print(f"❌ Error handling payment success: {e}")
-        traceback.print_exc()
+            transaction = PaymentTransaction.objects.filter(
+                paypal_payment_id=resource.get('id')
+            ).first()
+            
+            if not transaction:
+                transaction = PaymentTransaction.objects.filter(
+                    user=user,
+                    status='PENDING'
+                ).first()
+            
+            if transaction:
+                transaction.status = 'SUCCEEDED'
+                transaction.paypal_payment_id = resource.get('id')
+                transaction.save()
+                print(f"✅ Updated transaction {transaction.id} to SUCCEEDED")
+            else:
+                amount = float(resource.get('amount', {}).get('total', 9.99))
+                transaction = PaymentTransaction.objects.create(
+                    user=user,
+                    amount=amount,
+                    status='SUCCEEDED',
+                    payment_type='SUBSCRIPTION',
+                    paypal_payment_id=resource.get('id'),
+                    metadata={'payment_id': resource.get('id'), 'webhook_created': True}
+                )
+                print(f"✅ Created new transaction {transaction.id} as SUCCEEDED")
+            
+            if not user.is_subscription_active:
+                user.is_subscription_active = True
+                user.subscription_end_date = timezone.now() + timedelta(days=30)
+                user.save()
+                print(f"✅ Subscription activated for user {user.email}")
+                
+                if user.is_trial_active():
+                    user.trial_end_date = None
+                    user.trial_start_date = None
+                    user.save()
+                    print(f"🔄 User {user.email} upgraded from trial - trial dates cleared")
+            else:
+                print(f"⚠️ User {user.email} already had active subscription")
+            
+        except User.DoesNotExist:
+            print(f"❌ User not found for ID: {user_id}")
+    else:
+        print("⚠️ No user_id in payment custom field")
 
 
 def handle_payment_failure(resource):
     """Handle failed payment"""
-    try:
-        print(f"❌ Payment failed: {resource.get('id')}")
-        
-        # Update transaction status to failed
-        PaymentTransaction.objects.filter(
-            paypal_payment_id=resource.get('id')
-        ).update(status='FAILED')
-        print(f"✅ Updated transaction to FAILED")
-        
-    except Exception as e:
-        print(f"❌ Error handling payment failure: {e}")
+    print(f"❌ Payment failed: {resource.get('id')}")
+    PaymentTransaction.objects.filter(
+        paypal_payment_id=resource.get('id')
+    ).update(status='FAILED')
 
 
 def handle_subscription_activated(resource):
     """Handle subscription activated"""
-    try:
-        print(f"✅ Subscription activated: {resource.get('id')}")
-        
-        user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
-        if user:
-            was_on_trial = user.is_trial_active()
-            user.is_subscription_active = True
-            if resource.get('billing_info', {}).get('next_billing_time'):
-                user.subscription_end_date = resource['billing_info']['next_billing_time']
-            # Clear trial if user was on trial
-            if was_on_trial:
-                user.trial_end_date = None
-                user.trial_start_date = None
-            user.save()
-            print(f"✅ Activated subscription for user {user.email}" + 
-                  (" (upgraded from trial)" if was_on_trial else ""))
-            
-    except Exception as e:
-        print(f"❌ Error handling subscription activation: {e}")
-        traceback.print_exc()
+    print(f"✅ Subscription activated: {resource.get('id')}")
+    
+    user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
+    if user:
+        was_on_trial = user.is_trial_active()
+        user.is_subscription_active = True
+        if resource.get('billing_info', {}).get('next_billing_time'):
+            user.subscription_end_date = resource['billing_info']['next_billing_time']
+        if was_on_trial:
+            user.trial_end_date = None
+            user.trial_start_date = None
+        user.save()
+        print(f"✅ Activated subscription for user {user.email}" + 
+              (" (upgraded from trial)" if was_on_trial else ""))
 
 
 def handle_subscription_cancelled(resource):
     """Handle subscription cancelled"""
-    try:
-        print(f"❌ Subscription cancelled: {resource.get('id')}")
-        
-        user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
-        if user:
-            user.is_subscription_active = False
-            user.subscription_end_date = None
-            user.save()
-            print(f"✅ Deactivated subscription for user {user.email}")
-            
-    except Exception as e:
-        print(f"❌ Error handling subscription cancel: {e}")
-        traceback.print_exc()
+    print(f"❌ Subscription cancelled: {resource.get('id')}")
+    user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
+    if user:
+        user.is_subscription_active = False
+        user.subscription_end_date = None
+        user.save()
 
 
 def handle_subscription_suspended(resource):
     """Handle subscription suspended"""
-    try:
-        print(f"⚠️ Subscription suspended: {resource.get('id')}")
-        
-        user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
-        if user:
-            user.is_subscription_active = False
-            user.save()
-            print(f"✅ Suspended subscription for user {user.email}")
-            
-    except Exception as e:
-        print(f"❌ Error handling subscription suspension: {e}")
-        traceback.print_exc()
+    print(f"⚠️ Subscription suspended: {resource.get('id')}")
+    user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
+    if user:
+        user.is_subscription_active = False
+        user.save()
 
 
 def handle_subscription_expired(resource):
     """Handle subscription expired"""
-    try:
-        print(f"⚠️ Subscription expired: {resource.get('id')}")
-        
-        user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
-        if user:
-            user.is_subscription_active = False
-            user.subscription_end_date = None
-            user.save()
-            print(f"✅ Expired subscription for user {user.email}")
-            
-    except Exception as e:
-        print(f"❌ Error handling subscription expiry: {e}")
-        traceback.print_exc()
+    print(f"⚠️ Subscription expired: {resource.get('id')}")
+    user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
+    if user:
+        user.is_subscription_active = False
+        user.subscription_end_date = None
+        user.save()
 
 
 def handle_subscription_renewed(resource):
     """Handle subscription renewed"""
-    try:
-        print(f"🔄 Subscription renewed: {resource.get('id')}")
-        
-        user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
-        if user:
-            user.is_subscription_active = True
-            if resource.get('billing_info', {}).get('next_billing_time'):
-                user.subscription_end_date = resource['billing_info']['next_billing_time']
-            user.save()
-            print(f"✅ Renewed subscription for user {user.email}")
-            
-    except Exception as e:
-        print(f"❌ Error handling subscription renewal: {e}")
-        traceback.print_exc()
+    print(f"🔄 Subscription renewed: {resource.get('id')}")
+    user = User.objects.filter(paypal_subscription_id=resource.get('id')).first()
+    if user:
+        user.is_subscription_active = True
+        if resource.get('billing_info', {}).get('next_billing_time'):
+            user.subscription_end_date = resource['billing_info']['next_billing_time']
+        user.save()
